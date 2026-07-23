@@ -1,11 +1,13 @@
 import { connecteamFetch } from '@/lib/connecteam';
 import { encodeConfig } from '@/lib/config-token';
 import { put } from '@vercel/blob';
+import { getBlobToken } from '@/lib/blob';
 
 export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
+    const blobToken = getBlobToken();
     const { apiKey, formId, formName, mapping, logoUrl } = await request.json();
     const origin = new URL(request.url).origin;
     const config = { formId: Number(formId), formName, mapping, logoUrl: logoUrl || '' };
@@ -43,7 +45,8 @@ export async function POST(request) {
       access: 'public',
       contentType: 'application/json',
       allowOverwrite: true,
-      addRandomSuffix: false
+      addRandomSuffix: false,
+      token: blobToken
     });
 
     return Response.json({ webhookUrl, created: Boolean(created), webhook: created, warning, setup });

@@ -1,4 +1,5 @@
 import { put } from '@vercel/blob';
+import { getBlobToken } from '@/lib/blob';
 import { decodeConfig } from '@/lib/config-token';
 import { answerById, answerValue, signatureUrl } from '@/lib/answers';
 import { buildCertificate } from '@/lib/pdf';
@@ -11,6 +12,7 @@ function safeName(value) {
 
 export async function POST(request) {
   try {
+    const blobToken = getBlobToken();
     const config = decodeConfig(new URL(request.url).searchParams.get('config'));
     const body = await request.json();
     if (body.eventType !== 'form_submission') return Response.json({ ignored:true });
@@ -27,7 +29,7 @@ export async function POST(request) {
     const bytes = await buildCertificate({ firstName, lastName, courseName, completionDate, signature, logoUrl: config.logoUrl || '' });
     const submissionId = String(body.data.formSubmissionId || body.requestId || Date.now());
     const pathname = `certificates/${safeName(firstName)}-${safeName(lastName)}-${safeName(courseName)}-${submissionId}.pdf`;
-    const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:false });
+    const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:false, token: blobToken });
     const metadata = {
       submissionId,
       formId: config.formId,
@@ -39,7 +41,7 @@ export async function POST(request) {
       logoIncluded: Boolean(config.logoUrl),
       createdAt: new Date().toISOString()
     };
-    await put(`certificate-records/${submissionId}.json`, JSON.stringify(metadata), { access:'public', contentType:'application/json', allowOverwrite:true });
+    await put(`certificate-records/${submissionId}.json`, JSON.stringify(metadata), { access:'public', contentType:'application/json', allowOverwrite:true, token: blobToken });
     return Response.json({ success:true, certificateUrl:blob.url });
   } catch (error) {
     console.error('Certificate webhook failed', error);

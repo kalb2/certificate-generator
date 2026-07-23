@@ -1,4 +1,5 @@
 import { list, put } from '@vercel/blob';
+import { getBlobToken } from '@/lib/blob';
 
 export const runtime = 'nodejs';
 
@@ -6,7 +7,8 @@ const PATH = 'app-config/active-automation.json';
 
 export async function GET() {
   try {
-    const result = await list({ prefix: PATH, limit: 1 });
+    const token = getBlobToken();
+    const result = await list({ prefix: PATH, limit: 1, token });
     const blob = result.blobs.find((item) => item.pathname === PATH) || result.blobs[0];
     if (!blob) return Response.json({ setup: null });
     const response = await fetch(blob.url, { cache: 'no-store' });
@@ -19,12 +21,14 @@ export async function GET() {
 
 export async function PUT(request) {
   try {
+    const token = getBlobToken();
     const setup = await request.json();
     await put(PATH, JSON.stringify(setup), {
       access: 'public',
       contentType: 'application/json',
       allowOverwrite: true,
-      addRandomSuffix: false
+      addRandomSuffix: false,
+      token
     });
     return Response.json({ success: true, setup });
   } catch (error) {

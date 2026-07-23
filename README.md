@@ -1,10 +1,9 @@
 # Connecteam Certificate App
 
-This build supports both Vercel Blob authentication methods:
+This build uses one explicit Vercel Blob credential:
 
-- Modern Vercel OIDC: `BLOB_STORE_ID` plus the runtime-managed `VERCEL_OIDC_TOKEN`
-- Legacy/fallback static credential: `BLOB_READ_WRITE_TOKEN`
+`BLOB_READ_WRITE_TOKEN`
 
-For Vercel OIDC, connect the Blob store to the exact Vercel project and deployment environments from the store's **Projects** tab. You do not need to create or copy a read/write token manually.
+In Vercel, add the read/write token from your existing Blob store under **Project Settings > Environment Variables**. Apply it to Production (and Preview if needed), then redeploy.
 
-After redeploying, open `/setup`. The storage status should show **Vercel OIDC** when `BLOB_STORE_ID` is present.
+The app does not use OIDC, `BLOB_STORE_ID`, or `BLOB_WEBHOOK_PUBLIC_KEY` for uploads.

@@ -96,8 +96,8 @@ export default function Setup() {
     <div className="card">
       <h2>1. Storage check</h2>
       {storageReady === null && <p>Checking Vercel storage...</p>}
-      {storageReady === true && <div className="notice success">Vercel Blob storage is connected using {storageStatus?.credentialMode === 'oidc' ? 'Vercel OIDC' : 'a read/write token'}.{storageStatus?.verified === false ? ' The connection will be verified again when the app saves a file.' : ''}</div>}
-      {storageReady === false && <div className="notice error"><strong>Storage is not connected.</strong> In Vercel, open the Blob store's Projects tab, connect it to this exact project and environment, then redeploy.</div>}
+      {storageReady === true && <div className="notice success">Vercel Blob storage is connected using BLOB_READ_WRITE_TOKEN.</div>}
+      {storageReady === false && <div className="notice error"><strong>Storage is not connected.</strong> Add the existing Blob store's read/write token as an environment variable named BLOB_READ_WRITE_TOKEN, then redeploy.</div>}
     </div>
 
     <div className="card">

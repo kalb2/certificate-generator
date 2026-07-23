@@ -1,9 +1,11 @@
 import { put } from '@vercel/blob';
+import { getBlobToken } from '@/lib/blob';
 
 export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
+    const token = getBlobToken();
     const formData = await request.formData();
     const file = formData.get('logo');
     if (!file || typeof file.arrayBuffer !== 'function') throw new Error('Choose a logo file.');
@@ -14,7 +16,8 @@ export async function POST(request) {
       access: 'public',
       contentType: file.type || 'application/octet-stream',
       allowOverwrite: true,
-      addRandomSuffix: false
+      addRandomSuffix: false,
+      token
     });
     return Response.json({ logoUrl: blob.url });
   } catch (error) {
