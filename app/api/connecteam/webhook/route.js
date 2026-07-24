@@ -1,8 +1,6 @@
-import { put } from '@vercel/blob';
+import { put, list } from '@vercel/blob';
 import { getBlobToken } from '@/lib/blob';
 import { decodeConfig } from '@/lib/config-token';
-import { list } from '@vercel/blob';
-import { getBlobToken } from '@/lib/blob';
 import { answerById, answerValue, signatureUrl } from '@/lib/answers';
 import { buildCertificate } from '@/lib/pdf';
 import { findCertificateChat, sendCertificateChatMessage } from '@/lib/chat';
