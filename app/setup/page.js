@@ -83,14 +83,14 @@ export default function Setup() {
     <p className="muted">Use this page to create or update the single active automation for this Connecteam account.</p>
 
     {savedSetup && <div className="card active-card">
-      <div className="status-row"><h2>Active automation</h2><span className="status-pill">Active</span></div>
+      <div className="status-row"><h2>Saved certificate configuration</h2><span className="status-pill">Active</span></div>
       <table><tbody>
         <tr><th>Form</th><td>{savedSetup.formName}</td></tr>
         <tr><th>Created</th><td>{new Date(savedSetup.createdAt).toLocaleString()}</td></tr>
         <tr><th>Logo</th><td>{savedSetup.logoUrl ? 'Included' : 'Not included'}</td></tr>
         <tr><th>Webhook</th><td><code>{savedSetup.webhookUrl}</code></td></tr>
       </tbody></table>
-      <p className="muted">The automation remains active even after leaving this page. Submit the selected form and check Certificate History to verify it.</p>
+      <p className="muted">This configuration is used by the permanent Connecteam webhook. Do not create additional webhook URLs.</p>
     </div>}
 
     <div className="card">

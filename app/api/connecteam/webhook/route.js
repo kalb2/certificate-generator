@@ -1,6 +1,5 @@
 import { put, list } from '@vercel/blob';
 import { getBlobToken } from '@/lib/blob';
-import { decodeConfig } from '@/lib/config-token';
 import { answerById, answerValue, signatureUrl } from '@/lib/answers';
 import { buildCertificate } from '@/lib/pdf';
 import { findCertificateChat, sendCertificateChatMessage } from '@/lib/chat';
@@ -16,15 +15,13 @@ export async function POST(request) {
   try {
     const blobToken = getBlobToken();
     let config;
-    const queryConfig = new URL(request.url).searchParams.get('config');
-    if (queryConfig) {
-      config = decodeConfig(queryConfig);
-    } else {
+    {
       const saved = await list({ prefix:'app-config/active-automation.json', limit:1, token: blobToken });
       const blob = saved.blobs.find((b)=>b.pathname==='app-config/active-automation.json') || saved.blobs[0];
       if (!blob) throw new Error('Missing saved automation configuration. Go to setup and save the automation first.');
       config = await (await fetch(blob.url,{cache:'no-store'})).json();
     }
+    console.log('[config] loaded', { formId: config.formId, hasLogo: Boolean(config.logoUrl) });
     const body = await request.json();
     if (body.eventType !== 'form_submission') return Response.json({ ignored:true });
     if (Number(body.data?.formId) !== Number(config.formId)) return Response.json({ ignored:true, reason:'Different form' });
@@ -42,16 +39,23 @@ export async function POST(request) {
     console.log('[2] PDF generated', { size: bytes.length });
     const submissionId = String(body.data.formSubmissionId || body.requestId || Date.now());
     const pathname = `certificates/${safeName(firstName)}-${safeName(lastName)}-${safeName(courseName)}-${submissionId}.pdf`;
+    console.log('[3] Uploading certificate to Blob');
     const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:true, token: blobToken });
+    console.log('[4] Blob uploaded', blob.url);
     let connecteamFileId = null;
     if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
+      console.log('[5] Uploading PDF to Connecteam');
       connecteamFileId = await uploadPdfToConnecteam({ apiKey: process.env.CONNECTEAM_API_KEY, bytes, fileName: "certificate.pdf"});
+      console.log('[6] Connecteam file uploaded', connecteamFileId);
     }
     // Optional Connecteam chat delivery
     if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
       try {
+        console.log('[7] Finding Certificates Automation chat');
         const chat = await findCertificateChat(process.env.CONNECTEAM_API_KEY);
+        console.log('[8] Chat found', chat?.id || 'not found');
         if (chat?.id) {
+          console.log('[9] Sending chat message');
           await sendCertificateChatMessage({
             apiKey: process.env.CONNECTEAM_API_KEY,
             conversationId: chat.id,
@@ -60,6 +64,7 @@ export async function POST(request) {
             courseName,
             fileId: connecteamFileId,
           });
+          console.log('[10] Chat message sent');
         }
       } catch (chatError) {
         console.error('Certificate chat delivery failed:', chatError.message);
