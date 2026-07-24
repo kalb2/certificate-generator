@@ -3,6 +3,7 @@ import { getBlobToken } from '@/lib/blob';
 import { decodeConfig } from '@/lib/config-token';
 import { answerById, answerValue, signatureUrl } from '@/lib/answers';
 import { buildCertificate } from '@/lib/pdf';
+import { findCertificateChat, sendCertificateChatMessage } from '@/lib/chat';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,25 @@ export async function POST(request) {
     const submissionId = String(body.data.formSubmissionId || body.requestId || Date.now());
     const pathname = `certificates/${safeName(firstName)}-${safeName(lastName)}-${safeName(courseName)}-${submissionId}.pdf`;
     const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:false, token: blobToken });
+    // Optional Connecteam chat delivery
+    if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
+      try {
+        const chat = await findCertificateChat(process.env.CONNECTEAM_API_KEY);
+        if (chat?.id) {
+          await sendCertificateChatMessage({
+            apiKey: process.env.CONNECTEAM_API_KEY,
+            conversationId: chat.id,
+            senderId: process.env.CONNECTEAM_SENDER_ID,
+            employeeName: `${firstName} ${lastName}`.trim(),
+            courseName,
+            url: blob.url
+          });
+        }
+      } catch (chatError) {
+        console.error('Certificate chat delivery failed:', chatError.message);
+      }
+    }
+
     const metadata = {
       submissionId,
       formId: config.formId,
