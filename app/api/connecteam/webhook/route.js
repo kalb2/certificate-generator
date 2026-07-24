@@ -43,21 +43,15 @@ export async function POST(request) {
     const submissionId = String(body.data.formSubmissionId || body.requestId || Date.now());
     const pathname = `certificates/${safeName(firstName)}-${safeName(lastName)}-${safeName(courseName)}-${submissionId}.pdf`;
     const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:true, token: blobToken });
-    console.log('[3] Blob upload complete', { url: blob.url });
     let connecteamFileId = null;
     if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
-      console.log('[4] Uploading PDF to Connecteam attachments');
       connecteamFileId = await uploadPdfToConnecteam({ apiKey: process.env.CONNECTEAM_API_KEY, bytes, fileName: "certificate.pdf"});
-      console.log('[5] Connecteam file uploaded', { fileId: connecteamFileId });
     }
     // Optional Connecteam chat delivery
     if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
       try {
-        console.log('[6] Searching Certificates Automation chat');
         const chat = await findCertificateChat(process.env.CONNECTEAM_API_KEY);
-        console.log('[7] Chat lookup result', { chat: chat?.title, id: chat?.id });
         if (chat?.id) {
-          console.log('[8] Sending Connecteam chat message');
           await sendCertificateChatMessage({
             apiKey: process.env.CONNECTEAM_API_KEY,
             conversationId: chat.id,
@@ -66,7 +60,6 @@ export async function POST(request) {
             courseName,
             fileId: connecteamFileId,
           });
-          console.log('[9] Connecteam chat message sent');
         }
       } catch (chatError) {
         console.error('Certificate chat delivery failed:', chatError.message);
