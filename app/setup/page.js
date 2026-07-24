@@ -72,7 +72,7 @@ export default function Setup() {
     setBusy(true); setError(''); setMessage('Saving certificate automation...');
     try {
       const formName = selectedForm?.name || savedSetup?.formName || 'Selected form';
-      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({apiKey,formId,formName,mapping,logoUrl})});
+      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoUrl})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to create automation.');
       setResult(d); setSavedSetup(d.setup); setMessage(d.created ? 'Automation saved and webhook created successfully.' : 'Automation saved. Add the webhook manually using the instructions below.');
     } catch(e){ setError(e.message); setMessage(''); } finally { setBusy(false); }

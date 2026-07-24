@@ -1,6 +1,8 @@
 import { put } from '@vercel/blob';
 import { getBlobToken } from '@/lib/blob';
 import { decodeConfig } from '@/lib/config-token';
+import { list } from '@vercel/blob';
+import { getBlobToken } from '@/lib/blob';
 import { answerById, answerValue, signatureUrl } from '@/lib/answers';
 import { buildCertificate } from '@/lib/pdf';
 import { findCertificateChat, sendCertificateChatMessage } from '@/lib/chat';
@@ -15,7 +17,16 @@ function safeName(value) {
 export async function POST(request) {
   try {
     const blobToken = getBlobToken();
-    const config = decodeConfig(new URL(request.url).searchParams.get('config'));
+    let config;
+    const queryConfig = new URL(request.url).searchParams.get('config');
+    if (queryConfig) {
+      config = decodeConfig(queryConfig);
+    } else {
+      const saved = await list({ prefix:'app-config/active-automation.json', limit:1, token: blobToken });
+      const blob = saved.blobs.find((b)=>b.pathname==='app-config/active-automation.json') || saved.blobs[0];
+      if (!blob) throw new Error('Missing saved automation configuration. Go to setup and save the automation first.');
+      config = await (await fetch(blob.url,{cache:'no-store'})).json();
+    }
     const body = await request.json();
     if (body.eventType !== 'form_submission') return Response.json({ ignored:true });
     if (Number(body.data?.formId) !== Number(config.formId)) return Response.json({ ignored:true, reason:'Different form' });
@@ -28,10 +39,12 @@ export async function POST(request) {
     const completionDate = answerValue(completionAnswer) || new Date(Number(body.data.submissionTimestamp) * 1000).toLocaleDateString('en-US');
     const signature = signatureUrl(answerById(answers, config.mapping.signature));
 
+    console.log('[1] Building certificate', { hasLogo: Boolean(config.logoUrl), hasSignature: Boolean(signature) });
     const bytes = await buildCertificate({ firstName, lastName, courseName, completionDate, signature, logoUrl: config.logoUrl || '' });
+    console.log('[2] PDF generated', { size: bytes.length });
     const submissionId = String(body.data.formSubmissionId || body.requestId || Date.now());
     const pathname = `certificates/${safeName(firstName)}-${safeName(lastName)}-${safeName(courseName)}-${submissionId}.pdf`;
-    const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:false, token: blobToken });
+    const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:true, token: blobToken });
     let connecteamFileId = null;
     if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
       connecteamFileId = await uploadPdfToConnecteam({ apiKey: process.env.CONNECTEAM_API_KEY, bytes, fileName: "certificate.pdf"});
