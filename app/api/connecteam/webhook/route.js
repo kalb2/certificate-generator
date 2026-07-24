@@ -4,6 +4,7 @@ import { decodeConfig } from '@/lib/config-token';
 import { answerById, answerValue, signatureUrl } from '@/lib/answers';
 import { buildCertificate } from '@/lib/pdf';
 import { findCertificateChat, sendCertificateChatMessage } from '@/lib/chat';
+import { uploadPdfToConnecteam } from '@/lib/connecteam-files';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +32,10 @@ export async function POST(request) {
     const submissionId = String(body.data.formSubmissionId || body.requestId || Date.now());
     const pathname = `certificates/${safeName(firstName)}-${safeName(lastName)}-${safeName(courseName)}-${submissionId}.pdf`;
     const blob = await put(pathname, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:false, token: blobToken });
+    let connecteamFileId = null;
+    if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
+      connecteamFileId = await uploadPdfToConnecteam({ apiKey: process.env.CONNECTEAM_API_KEY, bytes, fileName: "certificate.pdf"});
+    }
     // Optional Connecteam chat delivery
     if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
       try {
@@ -42,7 +47,7 @@ export async function POST(request) {
             senderId: process.env.CONNECTEAM_SENDER_ID,
             employeeName: `${firstName} ${lastName}`.trim(),
             courseName,
-            url: blob.url
+            fileId: connecteamFileId,
           });
         }
       } catch (chatError) {
