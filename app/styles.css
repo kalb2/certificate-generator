@@ -34,4 +34,17 @@ th, td { text-align:left; padding:11px 8px; border-bottom:1px solid #e4e8f0; ver
 .admin-nav .actions{margin-top:0}
 .login-shell{max-width:520px;min-height:80vh;display:flex;align-items:center}
 .login-card{width:100%}
-@media (max-width:700px){ .row{grid-template-columns:1fr;} h1{font-size:29px;} }
+.setup-checklist-card{border-color:#c7d6f5}
+.checklist-intro{margin:4px 0 0}
+.setup-checklist{margin-top:10px}
+.checklist-item{display:flex;gap:14px;padding:18px 0;border-top:1px solid #e6eaf1}
+.checklist-item:first-child{border-top:0}
+.checklist-icon{width:30px;height:30px;flex:0 0 30px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;background:#f1f4f9;color:#536178}
+.checklist-item.done .checklist-icon{background:#dcfce7;color:#166534}
+.checklist-content{flex:1;min-width:0}
+.checklist-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:5px}
+.checklist-status{font-size:12px;font-weight:800;border-radius:999px;padding:4px 8px;white-space:nowrap}
+.checklist-status.done{background:#dcfce7;color:#166534}
+.checklist-status.pending{background:#fff7df;color:#8a5a00}
+.checklist-help{margin:10px 0 0;color:#647089;font-size:14px}
+@media (max-width:700px){ .row{grid-template-columns:1fr;} h1{font-size:29px;} .status-row,.checklist-heading{align-items:flex-start;flex-direction:column;} }
