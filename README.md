@@ -8,7 +8,7 @@ Each client should deploy their **own copy** into **their own Vercel account**. 
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkalb2%2Fcertificate-generator&project-name=connecteam-certificate-generator&repository-name=connecteam-certificate-generator&env=CONNECTEAM_API_KEY,CONNECTEAM_SENDER_ID,ADMIN_EMAIL,ADMIN_PASSWORD&envDescription=Enter+the+Connecteam+API+key,+Connecteam+sender+ID,+and+the+admin+login+that+will+protect+this+certificate+portal.)
 
-The button creates a new Vercel project and lets the client create their own copy of the Git repository.
+The button creates a new Vercel project and lets the client create their own copy of the Git repository. During deployment, Vercel prompts for the four required values below and saves them directly as environment variables on the new project. The client does **not** need to add these manually later in Vercel Settings.
 
 ## What is protected
 
@@ -43,6 +43,8 @@ Required:
 | `ADMIN_EMAIL` | Email used to sign into the certificate portal. |
 | `ADMIN_PASSWORD` | Password used to sign into the certificate portal. Use a unique password of at least 16 characters. |
 
+These four values are requested by the **Deploy with Vercel** flow and automatically saved to the new Vercel project.
+
 Optional:
 
 | Variable | Purpose |
@@ -72,12 +74,15 @@ The current setup screen requires mappings for first name, last name, and signat
 2. Sign in to Vercel.
 3. Choose the Vercel account/team that should own the app.
 4. Create a new Git repository when Vercel asks where to copy the source.
-5. Enter:
+5. Vercel will prompt you for:
    - `CONNECTEAM_API_KEY`
    - `CONNECTEAM_SENDER_ID`
    - `ADMIN_EMAIL`
    - `ADMIN_PASSWORD`
-6. Deploy the project.
+6. Enter the values and continue. Vercel saves them automatically as environment variables on the project.
+7. Deploy the project.
+
+You do not need to open **Settings → Environment Variables** to add these four values manually.
 
 The first deployment may complete before Blob storage is connected.
 
