@@ -1,9 +1,11 @@
-import { put, list } from '@vercel/blob';
-import { getBlobToken } from '@/lib/blob';
+import { put } from '@vercel/blob';
+import { blobAuth } from '@/lib/blob';
 import { answerById, answerValue, signatureUrl } from '@/lib/answers';
 import { buildCertificate } from '@/lib/pdf';
 import { findCertificateChat, sendCertificateChatMessage } from '@/lib/chat';
 import { uploadPdfToConnecteam } from '@/lib/connecteam-files';
+import { readPrivateBytes, readPrivateJson } from '@/lib/private-blob';
+import { verifyWebhookToken } from '@/lib/webhook-auth';
 
 export const runtime = 'nodejs';
 
@@ -11,19 +13,19 @@ function safeName(value) {
   return String(value || 'certificate').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0,60) || 'certificate';
 }
 
-async function loadConfig(token) {
-  const result = await list({ prefix: 'app-config/', limit: 100, token });
-  const configBlob = result.blobs.find((b) => b.pathname === 'app-config/active-automation.json');
-  if (!configBlob) throw new Error('No saved automation config found');
-  return fetch(configBlob.url, { cache: 'no-store' }).then(r => r.json());
+async function loadConfig() {
+  const config = await readPrivateJson('app-config/active-automation.json');
+  if (!config) throw new Error('No saved automation config found');
+  return config;
 }
 
 export async function POST(request) {
   try {
+    const suppliedToken = new URL(request.url).searchParams.get('token');
+    if (!verifyWebhookToken(suppliedToken)) return Response.json({ error:'Unauthorized webhook' }, { status:401 });
     console.log('[0] Webhook received');
-    const blobToken = getBlobToken();
-    const config = await loadConfig(blobToken);
-    console.log('[1] Config loaded', { formId: config.formId, hasLogo: !!config.logoUrl });
+    const config = await loadConfig();
+    console.log('[1] Config loaded', { formId: config.formId, hasLogo: !!(config.logoPath || config.logoUrl) });
 
     const body = await request.json();
     console.log('[2] Payload received', { eventType: body.eventType, formId: body.data?.formId });
@@ -37,14 +39,29 @@ export async function POST(request) {
     const courseName = answerValue(answerById(answers, config.mapping.courseName)) || config.formName;
     const completionDate = answerValue(answerById(answers, config.mapping.completionDate)) || new Date(Number(body.data.submissionTimestamp) * 1000).toLocaleDateString('en-US');
     const signature = signatureUrl(answerById(answers, config.mapping.signature));
+    const logoBytes = config.logoPath ? await readPrivateBytes(config.logoPath) : null;
 
-    console.log('[3] Building PDF', { firstName, lastName, hasLogo: !!config.logoUrl, hasSignature: !!signature });
-    const bytes = await buildCertificate({ firstName, lastName, courseName, completionDate, signature, logoUrl: config.logoUrl || '' });
+    console.log('[3] Building PDF', { firstName, lastName, hasLogo: !!(logoBytes?.length || config.logoUrl), hasSignature: !!signature });
+    const bytes = await buildCertificate({
+      firstName,
+      lastName,
+      courseName,
+      completionDate,
+      signature,
+      logoUrl: config.logoUrl || '',
+      logoBytes
+    });
     console.log('[4] PDF generated', { bytes: bytes.length });
 
     const submissionId = String(body.data.formSubmissionId || Date.now());
-    const blob = await put(`certificates/${safeName(firstName)}-${submissionId}.pdf`, bytes, { access:'public', contentType:'application/pdf', addRandomSuffix:true, token: blobToken });
-    console.log('[5] Blob uploaded', blob.url);
+    const certificatePath = `certificates/${safeName(firstName)}-${submissionId}.pdf`;
+    const blob = await put(certificatePath, bytes, {
+      access:'private',
+      contentType:'application/pdf',
+      addRandomSuffix:true,
+      ...blobAuth()
+    });
+    console.log('[5] Private Blob uploaded', blob.pathname);
 
     if (!process.env.CONNECTEAM_API_KEY || !process.env.CONNECTEAM_SENDER_ID) {
       console.log('[6] Missing Connecteam chat credentials');
@@ -55,13 +72,34 @@ export async function POST(request) {
       const chat = await findCertificateChat(process.env.CONNECTEAM_API_KEY);
       console.log('[8] Chat lookup', chat?.id || 'not found');
       if (chat?.id) {
-        await sendCertificateChatMessage({ apiKey: process.env.CONNECTEAM_API_KEY, conversationId: chat.id, senderId: process.env.CONNECTEAM_SENDER_ID, employeeName: `${firstName} ${lastName}`.trim(), courseName, fileId });
+        await sendCertificateChatMessage({
+          apiKey: process.env.CONNECTEAM_API_KEY,
+          conversationId: chat.id,
+          senderId: process.env.CONNECTEAM_SENDER_ID,
+          employeeName: `${firstName} ${lastName}`.trim(),
+          courseName,
+          fileId
+        });
         console.log('[9] Chat sent');
       }
     }
 
-    await put(`certificate-records/${submissionId}.json`, JSON.stringify({ submissionId, firstName, lastName, courseName, completionDate, certificateUrl: blob.url }), { access:'public', contentType:'application/json', allowOverwrite:true, token: blobToken });
-    return Response.json({ success:true, certificateUrl: blob.url });
+    const record = {
+      submissionId,
+      firstName,
+      lastName,
+      courseName,
+      completionDate,
+      certificatePath: blob.pathname,
+      createdAt: new Date().toISOString()
+    };
+    await put(`certificate-records/${submissionId}.json`, JSON.stringify(record), {
+      access:'private',
+      contentType:'application/json',
+      allowOverwrite:true,
+      ...blobAuth()
+    });
+    return Response.json({ success:true });
   } catch (error) {
     console.error('Certificate webhook failed', error);
     return Response.json({ success:false, error: error.message }, { status:500 });
