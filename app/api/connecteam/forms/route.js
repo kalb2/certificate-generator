@@ -1,6 +1,10 @@
 import { connecteamFetch, normalizeForms } from '@/lib/connecteam';
+import { requireApiAuth } from '@/lib/auth';
 
 export async function POST(request) {
+  const unauthorized = await requireApiAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { apiKey } = await request.json();
     const payload = await connecteamFetch('/forms/v1/forms?limit=300&offset=0', apiKey);
