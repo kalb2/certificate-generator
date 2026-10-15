@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import AdminNav from '@/app/components/AdminNav';
 
 const fieldLabels = {
   firstName:'First name', lastName:'Last name', courseName:'Course name', completionDate:'Completion date', signature:'Signature'
@@ -15,21 +16,26 @@ export default function Setup() {
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
   const [storageReady,setStorageReady] = useState(null);
-  const [storageStatus,setStorageStatus] = useState(null);
   const [result,setResult] = useState(null);
   const [savedSetup,setSavedSetup] = useState(null);
-  const [logoUrl,setLogoUrl] = useState('');
+  const [logoPath,setLogoPath] = useState('');
+  const [logoPreviewUrl,setLogoPreviewUrl] = useState('');
   const [logoBusy,setLogoBusy] = useState(false);
   const selectedForm = useMemo(() => forms.find(f => String(f.id) === String(formId)), [forms,formId]);
 
   useEffect(() => {
-    fetch('/api/status').then(r=>r.json()).then(d=>{ setStorageReady(d.storageReady); setStorageStatus(d); }).catch(()=>{ setStorageReady(false); setStorageStatus(null); });
+    fetch('/api/status').then(r=>r.json()).then(d=>setStorageReady(d.storageReady)).catch(()=>setStorageReady(false));
     fetch('/api/setup').then(r=>r.json()).then(d=>{
       if (d.setup) {
         setSavedSetup(d.setup);
         setFormId(String(d.setup.formId || ''));
         setMapping(d.setup.mapping || {});
-        setLogoUrl(d.setup.logoUrl || '');
+        if (d.setup.logoPath) {
+          setLogoPath(d.setup.logoPath);
+          setLogoPreviewUrl(`/api/logo?path=${encodeURIComponent(d.setup.logoPath)}`);
+        } else if (d.setup.logoUrl) {
+          setLogoPreviewUrl(d.setup.logoUrl);
+        }
         setResult({ created:d.setup.webhookCreatedAutomatically, webhookUrl:d.setup.webhookUrl, setup:d.setup });
       }
     }).catch(()=>{});
@@ -64,7 +70,9 @@ export default function Setup() {
       const body = new FormData(); body.append('logo', file);
       const r = await fetch('/api/logo', { method:'POST', body });
       const d = await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to upload logo.');
-      setLogoUrl(d.logoUrl); setMessage('Logo uploaded. Save the automation to use it on new certificates.');
+      setLogoPath(d.logoPath);
+      setLogoPreviewUrl(d.logoUrl);
+      setMessage('Logo uploaded privately. Save the automation to use it on new certificates.');
     } catch(e){ setError(e.message); } finally { setLogoBusy(false); }
   }
 
@@ -72,13 +80,21 @@ export default function Setup() {
     setBusy(true); setError(''); setMessage('Saving certificate automation...');
     try {
       const formName = selectedForm?.name || savedSetup?.formName || 'Selected form';
-      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoUrl})});
+      const legacyLogoUrl = !logoPath && savedSetup?.logoUrl ? savedSetup.logoUrl : '';
+      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoPath,logoUrl:legacyLogoUrl})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to create automation.');
       setResult(d); setSavedSetup(d.setup); setMessage(d.created ? 'Automation saved and webhook created successfully.' : 'Automation saved. Add the webhook manually using the instructions below.');
     } catch(e){ setError(e.message); setMessage(''); } finally { setBusy(false); }
   }
 
+  function removeLogo() {
+    setLogoPath('');
+    setLogoPreviewUrl('');
+    setSavedSetup(current => current ? {...current, logoPath:'', logoUrl:''} : current);
+  }
+
   return <main>
+    <AdminNav />
     <h1>Set up certificate automation</h1>
     <p className="muted">Use this page to create or update the single active automation for this Connecteam account.</p>
 
@@ -87,7 +103,7 @@ export default function Setup() {
       <table><tbody>
         <tr><th>Form</th><td>{savedSetup.formName}</td></tr>
         <tr><th>Created</th><td>{new Date(savedSetup.createdAt).toLocaleString()}</td></tr>
-        <tr><th>Logo</th><td>{savedSetup.logoUrl ? 'Included' : 'Not included'}</td></tr>
+        <tr><th>Logo</th><td>{savedSetup.logoPath || savedSetup.logoUrl ? 'Included' : 'Not included'}</td></tr>
         <tr><th>Webhook</th><td><code>{savedSetup.webhookUrl}</code></td></tr>
       </tbody></table>
       <p className="muted">This configuration is used by the permanent Connecteam webhook. Do not create additional webhook URLs.</p>
@@ -96,8 +112,8 @@ export default function Setup() {
     <div className="card">
       <h2>1. Storage check</h2>
       {storageReady === null && <p>Checking Vercel storage...</p>}
-      {storageReady === true && <div className="notice success">Vercel Blob storage is connected using BLOB_READ_WRITE_TOKEN.</div>}
-      {storageReady === false && <div className="notice error"><strong>Storage is not connected.</strong> Add the existing Blob store's read/write token as an environment variable named BLOB_READ_WRITE_TOKEN, then redeploy.</div>}
+      {storageReady === true && <div className="notice success">Vercel Blob storage is connected. This app expects a private Blob store.</div>}
+      {storageReady === false && <div className="notice error"><strong>Storage is not connected.</strong> Connect a private Vercel Blob store to this project, then redeploy.</div>}
     </div>
 
     <div className="card">
@@ -132,7 +148,7 @@ export default function Setup() {
       <h2 className="section-heading">5. Company logo</h2>
       <label>Upload a PNG, JPEG, or WebP logo</label>
       <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>uploadLogo(e.target.files?.[0])} disabled={logoBusy} />
-      {logoUrl && <div className="logo-preview"><img src={logoUrl} alt="Company logo preview" /><button className="secondary" onClick={()=>setLogoUrl('')}>Remove logo</button></div>}
+      {logoPreviewUrl && <div className="logo-preview"><img src={logoPreviewUrl} alt="Company logo preview" /><button className="secondary" onClick={removeLogo}>Remove logo</button></div>}
 
       <div className="actions"><button disabled={!storageReady || busy || logoBusy || !mapping.firstName || !mapping.lastName || !mapping.signature} onClick={createAutomation}>Save automation</button></div>
     </div>}
