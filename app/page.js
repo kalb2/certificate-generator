@@ -1,19 +1,24 @@
-export default function Home() {
+import { requirePageAuth } from '@/lib/auth';
+import AdminNav from '@/app/components/AdminNav';
+
+export default async function Home() {
+  await requirePageAuth();
   return (
     <main>
+      <AdminNav />
       <h1>Connecteam Certificate Automation</h1>
-      <p className="muted">One Connecteam account. One selected form. Automatic PDF certificates.</p>
+      <p className="muted">One Connecteam account. One selected form. Automatic private PDF certificates.</p>
       <div className="card">
-        <h2>Start here</h2>
-        <p>The setup screen connects to Connecteam, lists your forms, detects the certificate fields, and creates the form webhook.</p>
+        <h2>Manage automation</h2>
+        <p>Choose the Connecteam form, map certificate fields, upload a logo, and configure the permanent webhook.</p>
         <div className="actions">
           <a className="button" href="/setup">Set up automation</a>
           <a className="button secondary" href="/certificates">View certificates</a>
         </div>
       </div>
       <div className="card">
-        <h2>Required Vercel storage</h2>
-        <p>Generated PDFs must be stored somewhere after Connecteam calls the webhook. This app uses a Vercel Blob store connected to this project. The setup screen checks this automatically.</p>
+        <h2>Private by default</h2>
+        <p>Setup, certificate history, and PDF downloads require the admin login. Generated certificates are stored in a private Vercel Blob store.</p>
       </div>
     </main>
   );

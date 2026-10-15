@@ -1,34 +1,34 @@
-import { list, put } from '@vercel/blob';
-import { getBlobToken } from '@/lib/blob';
+import { put } from '@vercel/blob';
+import { blobAuth } from '@/lib/blob';
+import { readPrivateJson } from '@/lib/private-blob';
+import { requireApiAuth } from '@/lib/auth';
 
 export const runtime = 'nodejs';
-
 const PATH = 'app-config/active-automation.json';
 
 export async function GET() {
+  const unauthorized = await requireApiAuth();
+  if (unauthorized) return unauthorized;
+
   try {
-    const token = getBlobToken();
-    const result = await list({ prefix: PATH, limit: 1, token });
-    const blob = result.blobs.find((item) => item.pathname === PATH) || result.blobs[0];
-    if (!blob) return Response.json({ setup: null });
-    const response = await fetch(blob.url, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Saved setup could not be read.');
-    return Response.json({ setup: await response.json() });
+    return Response.json({ setup: await readPrivateJson(PATH) });
   } catch (error) {
     return Response.json({ setup: null, error: error.message }, { status: 200 });
   }
 }
 
 export async function PUT(request) {
+  const unauthorized = await requireApiAuth();
+  if (unauthorized) return unauthorized;
+
   try {
-    const token = getBlobToken();
     const setup = await request.json();
     await put(PATH, JSON.stringify(setup), {
-      access: 'public',
+      access: 'private',
       contentType: 'application/json',
       allowOverwrite: true,
       addRandomSuffix: false,
-      token
+      ...blobAuth()
     });
     return Response.json({ success: true, setup });
   } catch (error) {
