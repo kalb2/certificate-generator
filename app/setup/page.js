@@ -7,7 +7,6 @@ const fieldLabels = {
 };
 
 export default function Setup() {
-  const [apiKey,setApiKey] = useState('');
   const [forms,setForms] = useState([]);
   const [formId,setFormId] = useState('');
   const [questions,setQuestions] = useState([]);
@@ -42,9 +41,9 @@ export default function Setup() {
   }, []);
 
   async function discoverForms(){
-    setBusy(true); setError(''); setMessage('Connecting to Connecteam...');
+    setBusy(true); setError(''); setMessage('Connecting to Connecteam with the API key from this deployment...');
     try {
-      const r=await fetch('/api/connecteam/forms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({apiKey})});
+      const r=await fetch('/api/connecteam/forms',{method:'POST'});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to list forms.');
       setForms(d.forms); setMessage(`Found ${d.forms.length} form${d.forms.length===1?'':'s'}. Choose the certificate form.`);
       if (savedSetup?.formId) await loadForm(String(savedSetup.formId), d.forms);
@@ -55,7 +54,7 @@ export default function Setup() {
     setFormId(id); setQuestions([]); if(!id) return;
     setBusy(true); setError(''); setMessage('Reading form questions...');
     try {
-      const r=await fetch('/api/connecteam/form',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({apiKey,formId:id})});
+      const r=await fetch('/api/connecteam/form',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId:id})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to read form.');
       setQuestions(d.questions);
       setMapping(savedSetup && String(savedSetup.formId)===String(id) ? savedSetup.mapping : d.mapping);
@@ -118,9 +117,8 @@ export default function Setup() {
 
     <div className="card">
       <h2>2. Connect Connecteam</h2>
-      <label>Connecteam API key</label>
-      <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Paste the API key" autoComplete="off" />
-      <div className="actions"><button disabled={!apiKey || busy} onClick={discoverForms}>Find my forms</button></div>
+      <div className="notice success"><strong>Connecteam credentials come from the deployment.</strong> You do not need to paste the API key again here.</div>
+      <div className="actions"><button disabled={busy} onClick={discoverForms}>Find my forms</button></div>
     </div>
 
     {forms.length > 0 && <div className="card">
