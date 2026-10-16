@@ -70,7 +70,8 @@ export async function POST(request) {
       completionDate,
       signature,
       logoUrl: config.logoUrl || '',
-      logoBytes
+      logoBytes,
+      pdfOptions: config.pdfOptions || {}
     });
     console.log('[4] PDF generated', { bytes: bytes.length });
 
