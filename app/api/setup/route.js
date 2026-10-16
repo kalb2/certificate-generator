@@ -1,6 +1,4 @@
-import { put } from '@vercel/blob';
-import { blobAuth } from '@/lib/blob';
-import { readPrivateJson } from '@/lib/private-blob';
+import { putAdaptive, readPrivateJson } from '@/lib/private-blob';
 import { requireApiAuth } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -23,12 +21,10 @@ export async function PUT(request) {
 
   try {
     const setup = await request.json();
-    await put(PATH, JSON.stringify(setup), {
-      access: 'private',
+    await putAdaptive(PATH, JSON.stringify(setup), {
       contentType: 'application/json',
       allowOverwrite: true,
-      addRandomSuffix: false,
-      ...blobAuth()
+      addRandomSuffix: false
     });
     return Response.json({ success: true, setup });
   } catch (error) {
