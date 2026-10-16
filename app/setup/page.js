@@ -6,6 +6,19 @@ const fieldLabels = {
   firstName:'First name', lastName:'Last name', courseName:'Course name', completionDate:'Completion date', signature:'Signature'
 };
 
+const defaultPdfOptions = {
+  layout:'department',
+  title:'CERTIFICATE OF COMPLETION',
+  introText:'This certifies that',
+  completionText:'has successfully completed',
+  datePrefix:'Completed on',
+  signatureLabel:'Signature',
+  primaryColor:'#143057',
+  accentColor:'#B8862B',
+  logoSize:'medium',
+  showOuterBorder:true
+};
+
 export default function Setup() {
   const [forms,setForms] = useState([]);
   const [formId,setFormId] = useState('');
@@ -20,7 +33,19 @@ export default function Setup() {
   const [logoPath,setLogoPath] = useState('');
   const [logoPreviewUrl,setLogoPreviewUrl] = useState('');
   const [logoBusy,setLogoBusy] = useState(false);
+  const [webhookHealth,setWebhookHealth] = useState(null);
+  const [pdfOptions,setPdfOptions] = useState(defaultPdfOptions);
   const selectedForm = useMemo(() => forms.find(f => String(f.id) === String(formId)), [forms,formId]);
+
+  async function refreshWebhookHealth() {
+    try {
+      const r = await fetch('/api/connecteam/webhook-status', { cache:'no-store' });
+      const d = await r.json();
+      setWebhookHealth(d);
+    } catch {
+      setWebhookHealth({ registered:false, deliveryConfirmed:false, message:'Webhook status could not be checked.' });
+    }
+  }
 
   useEffect(() => {
     fetch('/api/status').then(r=>r.json()).then(d=>setStorageReady(d.storageReady)).catch(()=>setStorageReady(false));
@@ -29,15 +54,16 @@ export default function Setup() {
         setSavedSetup(d.setup);
         setFormId(String(d.setup.formId || ''));
         setMapping(d.setup.mapping || {});
+        setPdfOptions({...defaultPdfOptions, ...(d.setup.pdfOptions || {})});
         if (d.setup.logoPath) {
           setLogoPath(d.setup.logoPath);
           setLogoPreviewUrl(`/api/logo?path=${encodeURIComponent(d.setup.logoPath)}`);
         } else if (d.setup.logoUrl) {
           setLogoPreviewUrl(d.setup.logoUrl);
         }
-        setResult({ created:d.setup.webhookCreatedAutomatically, webhookUrl:d.setup.webhookUrl, setup:d.setup });
+        setResult({ created:d.setup.webhookCreatedAutomatically, verified:d.setup.webhookVerified, webhookUrl:d.setup.webhookUrl, setup:d.setup });
       }
-    }).catch(()=>{});
+    }).catch(()=>{}).finally(refreshWebhookHealth);
   }, []);
 
   async function discoverForms(){
@@ -58,7 +84,7 @@ export default function Setup() {
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to read form.');
       setQuestions(d.questions);
       setMapping(savedSetup && String(savedSetup.formId)===String(id) ? savedSetup.mapping : d.mapping);
-      setMessage('Fields detected. Review the selections, then save the automation.');
+      setMessage('Fields detected. Review the selections, customize the certificate, then save the automation.');
     } catch(e){ setError(e.message); setMessage(''); } finally { setBusy(false); }
   }
 
@@ -76,13 +102,15 @@ export default function Setup() {
   }
 
   async function createAutomation(){
-    setBusy(true); setError(''); setMessage('Saving certificate automation...');
+    setBusy(true); setError(''); setMessage('Saving automation and creating the Connecteam webhook...');
     try {
       const formName = selectedForm?.name || savedSetup?.formName || 'Selected form';
       const legacyLogoUrl = !logoPath && savedSetup?.logoUrl ? savedSetup.logoUrl : '';
-      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoPath,logoUrl:legacyLogoUrl})});
+      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoPath,logoUrl:legacyLogoUrl,pdfOptions})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to create automation.');
-      setResult(d); setSavedSetup(d.setup); setMessage(d.created ? 'Automation saved and webhook created successfully.' : 'Automation saved. Add the webhook manually using the instructions below.');
+      setResult(d); setSavedSetup(d.setup);
+      setMessage(`Automation saved. Connecteam webhook ${d.webhookAction === 'updated' ? 'updated' : 'created'} and verified successfully.`);
+      await refreshWebhookHealth();
     } catch(e){ setError(e.message); setMessage(''); } finally { setBusy(false); }
   }
 
@@ -90,6 +118,10 @@ export default function Setup() {
     setLogoPath('');
     setLogoPreviewUrl('');
     setSavedSetup(current => current ? {...current, logoPath:'', logoUrl:''} : current);
+  }
+
+  function updatePdfOption(key,value) {
+    setPdfOptions(current => ({...current,[key]:value}));
   }
 
   return <main>
@@ -103,9 +135,21 @@ export default function Setup() {
         <tr><th>Form</th><td>{savedSetup.formName}</td></tr>
         <tr><th>Created</th><td>{new Date(savedSetup.createdAt).toLocaleString()}</td></tr>
         <tr><th>Logo</th><td>{savedSetup.logoPath || savedSetup.logoUrl ? 'Included' : 'Not included'}</td></tr>
-        <tr><th>Webhook</th><td><code>{savedSetup.webhookUrl}</code></td></tr>
+        <tr><th>PDF layout</th><td>{pdfOptions.layout === 'department' ? 'Department-style header' : 'Centered classic'}</td></tr>
+        <tr><th>Webhook</th><td>{savedSetup.webhookId ? `Connecteam webhook #${savedSetup.webhookId}` : 'Not automatically managed'}</td></tr>
       </tbody></table>
-      <p className="muted">This configuration is used by the permanent Connecteam webhook. Do not create additional webhook URLs.</p>
+    </div>}
+
+    {savedSetup && <div className="card">
+      <div className="status-row"><h2>Webhook health</h2><button className="secondary" onClick={refreshWebhookHealth}>Recheck</button></div>
+      {!webhookHealth && <p>Checking Connecteam webhook...</p>}
+      {webhookHealth && <>
+        <div className={`notice ${webhookHealth.registered ? 'success' : 'error'}`}>
+          <strong>{webhookHealth.registered ? 'Registered and verified in Connecteam.' : 'Webhook verification failed.'}</strong> {webhookHealth.message}
+        </div>
+        {webhookHealth.registered && !webhookHealth.deliveryConfirmed && <div className="notice"><strong>Live delivery not confirmed yet.</strong> Submit the selected form once, then click Recheck.</div>}
+        {webhookHealth.deliveryConfirmed && <div className="notice success"><strong>End-to-end delivery confirmed.</strong> Last form event received {new Date(webhookHealth.lastDelivery.receivedAt).toLocaleString()}.</div>}
+      </>}
     </div>}
 
     <div className="card">
@@ -144,9 +188,64 @@ export default function Setup() {
       </div>
 
       <h2 className="section-heading">5. Company logo</h2>
+      <p className="muted">In the default layout, this logo occupies the top-left branding area of the certificate.</p>
       <label>Upload a PNG, JPEG, or WebP logo</label>
       <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>uploadLogo(e.target.files?.[0])} disabled={logoBusy} />
       {logoPreviewUrl && <div className="logo-preview"><img src={logoPreviewUrl} alt="Company logo preview" /><button className="secondary" onClick={removeLogo}>Remove logo</button></div>}
+
+      <h2 className="section-heading">6. Certificate layout</h2>
+      <div className="row">
+        <div>
+          <label>Layout</label>
+          <select value={pdfOptions.layout} onChange={e=>updatePdfOption('layout',e.target.value)}>
+            <option value="department">Department-style header</option>
+            <option value="centered">Centered classic</option>
+          </select>
+        </div>
+        <div>
+          <label>Logo size</label>
+          <select value={pdfOptions.logoSize} onChange={e=>updatePdfOption('logoSize',e.target.value)}>
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
+        <div>
+          <label>Certificate title</label>
+          <input value={pdfOptions.title} onChange={e=>updatePdfOption('title',e.target.value)} />
+        </div>
+        <div>
+          <label>Intro text</label>
+          <input value={pdfOptions.introText} onChange={e=>updatePdfOption('introText',e.target.value)} />
+        </div>
+        <div>
+          <label>Completion text</label>
+          <input value={pdfOptions.completionText} onChange={e=>updatePdfOption('completionText',e.target.value)} />
+        </div>
+        <div>
+          <label>Date prefix</label>
+          <input value={pdfOptions.datePrefix} onChange={e=>updatePdfOption('datePrefix',e.target.value)} />
+        </div>
+        <div>
+          <label>Signature label</label>
+          <input value={pdfOptions.signatureLabel} onChange={e=>updatePdfOption('signatureLabel',e.target.value)} />
+        </div>
+        <div>
+          <label>Primary color</label>
+          <input type="color" value={pdfOptions.primaryColor} onChange={e=>updatePdfOption('primaryColor',e.target.value)} />
+        </div>
+        <div>
+          <label>Accent color</label>
+          <input type="color" value={pdfOptions.accentColor} onChange={e=>updatePdfOption('accentColor',e.target.value)} />
+        </div>
+        <div>
+          <label>Border</label>
+          <select value={pdfOptions.showOuterBorder ? 'yes' : 'no'} onChange={e=>updatePdfOption('showOuterBorder',e.target.value === 'yes')}>
+            <option value="yes">Show border</option>
+            <option value="no">No border</option>
+          </select>
+        </div>
+      </div>
 
       <div className="actions"><button disabled={!storageReady || busy || logoBusy || !mapping.firstName || !mapping.lastName || !mapping.signature} onClick={createAutomation}>Save automation</button></div>
     </div>}
@@ -155,17 +254,11 @@ export default function Setup() {
     {error && <div className="notice error">{error}</div>}
 
     {result && <div className="card">
-      <h2>Webhook setup</h2>
-      {result.created ? <p>The Connecteam webhook was created automatically.</p> : <>
-        <p>In Connecteam, go to <strong>Settings → API &amp; Integrations → Add webhook</strong> and use:</p>
-        <table><tbody>
-          <tr><th>Feature</th><td>Forms</td></tr>
-          <tr><th>Object</th><td>{savedSetup?.formName || selectedForm?.name}</td></tr>
-          <tr><th>Event</th><td>Form submission</td></tr>
-          <tr><th>URL</th><td><code>{result.webhookUrl}</code></td></tr>
-        </tbody></table>
-      </>}
-      {result.warning && <div className="notice">{result.warning}</div>}
+      <h2>Automation status</h2>
+      {result.created && result.verified
+        ? <div className="notice success"><strong>Webhook created and verified automatically.</strong> No manual Connecteam webhook setup is required.</div>
+        : <div className="notice error">The webhook is not verified. Save the automation again after fixing the reported error.</div>}
+      <p className="muted">After the first real form submission, the Webhook health section above will confirm end-to-end delivery.</p>
       <div className="actions"><a className="button secondary" href="/certificates">Open certificate history</a></div>
     </div>}
   </main>;
