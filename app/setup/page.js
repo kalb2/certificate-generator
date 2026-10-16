@@ -43,7 +43,7 @@ export default function Setup() {
       const d = await r.json();
       setWebhookHealth(d);
     } catch {
-      setWebhookHealth({ registered:false, deliveryConfirmed:false, message:'Webhook status could not be checked.' });
+      setWebhookHealth({ state:'check_failed', registered:false, deliveryConfirmed:false, message:'Webhook status could not be checked.' });
     }
   }
 
@@ -136,18 +136,22 @@ export default function Setup() {
         <tr><th>Created</th><td>{new Date(savedSetup.createdAt).toLocaleString()}</td></tr>
         <tr><th>Logo</th><td>{savedSetup.logoPath || savedSetup.logoUrl ? 'Included' : 'Not included'}</td></tr>
         <tr><th>PDF layout</th><td>{pdfOptions.layout === 'department' ? 'Department-style header' : 'Centered classic'}</td></tr>
-        <tr><th>Webhook</th><td>{savedSetup.webhookId ? `Connecteam webhook #${savedSetup.webhookId}` : 'Not automatically managed'}</td></tr>
+        <tr><th>Webhook</th><td>{savedSetup.webhookId ? `Connecteam webhook #${savedSetup.webhookId}` : 'Will be created automatically when you save'}</td></tr>
       </tbody></table>
     </div>}
 
     {savedSetup && <div className="card">
       <div className="status-row"><h2>Webhook health</h2><button className="secondary" onClick={refreshWebhookHealth}>Recheck</button></div>
       {!webhookHealth && <p>Checking Connecteam webhook...</p>}
-      {webhookHealth && <>
-        <div className={`notice ${webhookHealth.registered ? 'success' : 'error'}`}>
-          <strong>{webhookHealth.registered ? 'Registered and verified in Connecteam.' : 'Webhook verification failed.'}</strong> {webhookHealth.message}
-        </div>
-        {webhookHealth.registered && !webhookHealth.deliveryConfirmed && <div className="notice"><strong>Live delivery not confirmed yet.</strong> Submit the selected form once, then click Recheck.</div>}
+      {webhookHealth && webhookHealth.state === 'needs_provisioning' && <>
+        <div className="notice"><strong>Webhook not created yet.</strong> {webhookHealth.message}</div>
+        <p className="muted">This is expected for a setup saved before automatic webhook creation was added.</p>
+      </>}
+      {webhookHealth && webhookHealth.state === 'not_configured' && <div className="notice">{webhookHealth.message}</div>}
+      {webhookHealth && ['invalid_setup','verification_failed','check_failed'].includes(webhookHealth.state) && <div className="notice error"><strong>Webhook check needs attention.</strong> {webhookHealth.message || webhookHealth.error}</div>}
+      {webhookHealth && webhookHealth.registered && <>
+        <div className="notice success"><strong>Registered and verified in Connecteam.</strong> {webhookHealth.message}</div>
+        {!webhookHealth.deliveryConfirmed && <div className="notice"><strong>Live delivery not confirmed yet.</strong> Submit the selected form once, then click Recheck.</div>}
         {webhookHealth.deliveryConfirmed && <div className="notice success"><strong>End-to-end delivery confirmed.</strong> Last form event received {new Date(webhookHealth.lastDelivery.receivedAt).toLocaleString()}.</div>}
       </>}
     </div>}
@@ -257,7 +261,7 @@ export default function Setup() {
       <h2>Automation status</h2>
       {result.created && result.verified
         ? <div className="notice success"><strong>Webhook created and verified automatically.</strong> No manual Connecteam webhook setup is required.</div>
-        : <div className="notice error">The webhook is not verified. Save the automation again after fixing the reported error.</div>}
+        : <div className="notice">Save the automation to create and verify the Connecteam webhook automatically.</div>}
       <p className="muted">After the first real form submission, the Webhook health section above will confirm end-to-end delivery.</p>
       <div className="actions"><a className="button secondary" href="/certificates">Open certificate history</a></div>
     </div>}
