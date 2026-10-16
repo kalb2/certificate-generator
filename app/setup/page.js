@@ -9,12 +9,12 @@ const fieldLabels = {
 const defaultPdfOptions = {
   layout:'department',
   title:'CERTIFICATE OF COMPLETION',
-  introText:'This certifies that',
-  completionText:'has successfully completed',
-  datePrefix:'Completed on',
-  signatureLabel:'Signature',
-  primaryColor:'#143057',
-  accentColor:'#B8862B',
+  introText:'THIS CERTIFIES THAT',
+  completionText:'HAS SUCCESSFULLY COMPLETED',
+  datePrefix:'',
+  signatureLabel:'Trainer Signature',
+  primaryColor:'#111111',
+  accentColor:'#111111',
   logoSize:'medium',
   showOuterBorder:true
 };
@@ -35,6 +35,9 @@ export default function Setup() {
   const [logoBusy,setLogoBusy] = useState(false);
   const [webhookHealth,setWebhookHealth] = useState(null);
   const [pdfOptions,setPdfOptions] = useState(defaultPdfOptions);
+  const [previewUrl,setPreviewUrl] = useState('');
+  const [previewBusy,setPreviewBusy] = useState(false);
+  const [previewError,setPreviewError] = useState('');
   const selectedForm = useMemo(() => forms.find(f => String(f.id) === String(formId)), [forms,formId]);
 
   async function refreshWebhookHealth() {
@@ -44,6 +47,37 @@ export default function Setup() {
       setWebhookHealth(d);
     } catch {
       setWebhookHealth({ state:'check_failed', registered:false, deliveryConfirmed:false, message:'Webhook status could not be checked.' });
+    }
+  }
+
+  async function refreshPdfPreview() {
+    setPreviewBusy(true);
+    setPreviewError('');
+    try {
+      const r = await fetch('/api/certificate-preview', {
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({
+          logoPath,
+          logoUrl: !logoPath && savedSetup?.logoUrl ? savedSetup.logoUrl : '',
+          pdfOptions,
+          courseName:selectedForm?.name || savedSetup?.formName || 'Recognizing and Reporting Abuse, Neglect and Exploitation Training'
+        })
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(()=>({}));
+        throw new Error(d.error || 'Unable to generate PDF preview.');
+      }
+      const blob = await r.blob();
+      const nextUrl = URL.createObjectURL(blob);
+      setPreviewUrl(current => {
+        if (current) URL.revokeObjectURL(current);
+        return nextUrl;
+      });
+    } catch (e) {
+      setPreviewError(e.message);
+    } finally {
+      setPreviewBusy(false);
     }
   }
 
@@ -65,6 +99,12 @@ export default function Setup() {
       }
     }).catch(()=>{}).finally(refreshWebhookHealth);
   }, []);
+
+  useEffect(() => {
+    if (!questions.length) return;
+    const timer = setTimeout(refreshPdfPreview, 350);
+    return () => clearTimeout(timer);
+  }, [questions.length, pdfOptions, logoPath, selectedForm?.name, savedSetup?.formName]);
 
   async function discoverForms(){
     setBusy(true); setError(''); setMessage('Connecting to Connecteam with the API key from this deployment...');
@@ -97,7 +137,7 @@ export default function Setup() {
       const d = await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to upload logo.');
       setLogoPath(d.logoPath);
       setLogoPreviewUrl(d.logoUrl);
-      setMessage('Logo uploaded privately. Save the automation to use it on new certificates.');
+      setMessage('Logo uploaded privately. The PDF preview will refresh automatically.');
     } catch(e){ setError(e.message); } finally { setLogoBusy(false); }
   }
 
@@ -135,7 +175,7 @@ export default function Setup() {
         <tr><th>Form</th><td>{savedSetup.formName}</td></tr>
         <tr><th>Created</th><td>{new Date(savedSetup.createdAt).toLocaleString()}</td></tr>
         <tr><th>Logo</th><td>{savedSetup.logoPath || savedSetup.logoUrl ? 'Included' : 'Not included'}</td></tr>
-        <tr><th>PDF layout</th><td>{pdfOptions.layout === 'department' ? 'Department-style header' : 'Centered classic'}</td></tr>
+        <tr><th>PDF layout</th><td>{pdfOptions.layout === 'department' ? 'Reference certificate style' : 'Centered classic'}</td></tr>
         <tr><th>Webhook</th><td>{savedSetup.webhookId ? `Connecteam webhook #${savedSetup.webhookId}` : 'Will be created automatically when you save'}</td></tr>
       </tbody></table>
     </div>}
@@ -160,7 +200,7 @@ export default function Setup() {
       <h2>1. Storage check</h2>
       {storageReady === null && <p>Checking Vercel storage...</p>}
       {storageReady === true && <div className="notice success">Vercel Blob storage is connected. This app expects a private Blob store.</div>}
-      {storageReady === false && <div className="notice error"><strong>Storage is not connected.</strong> Connect a private Vercel Blob store to this project, then redeploy.</div>}
+      {storageReady === false && <div className="notice error"><strong>Storage is not connected as private storage.</strong> Create a new Vercel Blob store with <strong>Private</strong> access, connect it to this project, then redeploy. A public Blob store cannot be used by this version.</div>}
     </div>
 
     <div className="card">
@@ -192,7 +232,7 @@ export default function Setup() {
       </div>
 
       <h2 className="section-heading">5. Company logo</h2>
-      <p className="muted">In the default layout, this logo occupies the top-left branding area of the certificate.</p>
+      <p className="muted">In the default layout, this logo replaces the agency branding at the top of the reference certificate.</p>
       <label>Upload a PNG, JPEG, or WebP logo</label>
       <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>uploadLogo(e.target.files?.[0])} disabled={logoBusy} />
       {logoPreviewUrl && <div className="logo-preview"><img src={logoPreviewUrl} alt="Company logo preview" /><button className="secondary" onClick={removeLogo}>Remove logo</button></div>}
@@ -202,7 +242,7 @@ export default function Setup() {
         <div>
           <label>Layout</label>
           <select value={pdfOptions.layout} onChange={e=>updatePdfOption('layout',e.target.value)}>
-            <option value="department">Department-style header</option>
+            <option value="department">Reference certificate style</option>
             <option value="centered">Centered classic</option>
           </select>
         </div>
@@ -228,7 +268,7 @@ export default function Setup() {
         </div>
         <div>
           <label>Date prefix</label>
-          <input value={pdfOptions.datePrefix} onChange={e=>updatePdfOption('datePrefix',e.target.value)} />
+          <input value={pdfOptions.datePrefix} onChange={e=>updatePdfOption('datePrefix',e.target.value)} placeholder="Leave blank for date only" />
         </div>
         <div>
           <label>Signature label</label>
@@ -250,6 +290,15 @@ export default function Setup() {
           </select>
         </div>
       </div>
+
+      <h2 className="section-heading">7. PDF preview</h2>
+      <div className="status-row">
+        <p className="muted pdf-preview-copy">Uses sample recipient/date values and the same PDF generator used for real certificates.</p>
+        <button className="secondary" disabled={previewBusy} onClick={refreshPdfPreview}>{previewBusy ? 'Refreshing...' : 'Refresh preview'}</button>
+      </div>
+      {previewError && <div className="notice error">{previewError}</div>}
+      {previewBusy && !previewUrl && <div className="pdf-preview-loading">Generating preview...</div>}
+      {previewUrl && <iframe className="pdf-preview-frame" title="Certificate PDF preview" src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0`} />}
 
       <div className="actions"><button disabled={!storageReady || busy || logoBusy || !mapping.firstName || !mapping.lastName || !mapping.signature} onClick={createAutomation}>Save automation</button></div>
     </div>}
