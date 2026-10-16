@@ -19,10 +19,12 @@ async function loadConfig() {
   return config;
 }
 
-async function recordWebhookDelivery(body) {
+async function recordWebhookSuccess(body, submissionId) {
   await put('app-config/webhook-health.json', JSON.stringify({
     receivedAt: new Date().toISOString(),
+    processedSuccessfully: true,
     requestId: String(body.requestId || ''),
+    submissionId: String(submissionId || ''),
     eventType: String(body.eventType || ''),
     formId: Number(body.data?.formId || 0)
   }), {
@@ -51,8 +53,6 @@ export async function POST(request) {
 
     if (body.eventType !== 'form_submission') return Response.json({ ignored: true });
     if (Number(body.data?.formId) !== Number(config.formId)) return Response.json({ ignored: true, reason: 'Different form' });
-
-    await recordWebhookDelivery(body);
 
     const answers = body.data?.answers || [];
     const firstName = answerValue(answerById(answers, config.mapping.firstName));
@@ -121,6 +121,8 @@ export async function POST(request) {
       allowOverwrite:true,
       ...blobAuth()
     });
+
+    await recordWebhookSuccess(body, submissionId);
     return Response.json({ success:true });
   } catch (error) {
     console.error('Certificate webhook failed', error);
