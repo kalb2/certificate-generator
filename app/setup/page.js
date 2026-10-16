@@ -28,6 +28,7 @@ export default function Setup() {
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
   const [storageReady,setStorageReady] = useState(null);
+  const [storageAccess,setStorageAccess] = useState('');
   const [result,setResult] = useState(null);
   const [savedSetup,setSavedSetup] = useState(null);
   const [logoPath,setLogoPath] = useState('');
@@ -82,7 +83,10 @@ export default function Setup() {
   }
 
   useEffect(() => {
-    fetch('/api/status').then(r=>r.json()).then(d=>setStorageReady(d.storageReady)).catch(()=>setStorageReady(false));
+    fetch('/api/status').then(r=>r.json()).then(d=>{
+      setStorageReady(d.storageReady);
+      setStorageAccess(d.access || '');
+    }).catch(()=>setStorageReady(false));
     fetch('/api/setup').then(r=>r.json()).then(d=>{
       if (d.setup) {
         setSavedSetup(d.setup);
@@ -137,7 +141,7 @@ export default function Setup() {
       const d = await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to upload logo.');
       setLogoPath(d.logoPath);
       setLogoPreviewUrl(d.logoUrl);
-      setMessage('Logo uploaded privately. The PDF preview will refresh automatically.');
+      setMessage('Logo uploaded. The PDF preview will refresh automatically.');
     } catch(e){ setError(e.message); } finally { setLogoBusy(false); }
   }
 
@@ -199,8 +203,8 @@ export default function Setup() {
     <div className="card">
       <h2>1. Storage check</h2>
       {storageReady === null && <p>Checking Vercel storage...</p>}
-      {storageReady === true && <div className="notice success">Vercel Blob storage is connected. This app expects a private Blob store.</div>}
-      {storageReady === false && <div className="notice error"><strong>Storage is not connected as private storage.</strong> Create a new Vercel Blob store with <strong>Private</strong> access, connect it to this project, then redeploy. A public Blob store cannot be used by this version.</div>}
+      {storageReady === true && <div className="notice success"><strong>Vercel Blob is ready.</strong> Connected store access: <strong>{storageAccess || 'detected'}</strong>. Both public and private Blob stores are supported.</div>}
+      {storageReady === false && <div className="notice error"><strong>Storage is not connected or writable.</strong> Connect a Vercel Blob store to this project, then redeploy.</div>}
     </div>
 
     <div className="card">
