@@ -31,6 +31,7 @@ export async function GET() {
 
     const health = await readPrivateJson('app-config/webhook-health.json');
     const deliveryConfirmed = Boolean(
+      health?.processedSuccessfully &&
       health?.receivedAt &&
       Number(health.formId) === Number(setup.formId) &&
       health.eventType === 'form_submission'
@@ -45,8 +46,8 @@ export async function GET() {
       lastDelivery: deliveryConfirmed ? health : null,
       message: registration.verified
         ? (deliveryConfirmed
-            ? 'Webhook is registered in Connecteam and a form-submission delivery has been received.'
-            : 'Webhook is registered and verified in Connecteam. Submit the selected form once to confirm end-to-end delivery.')
+            ? 'Webhook is registered in Connecteam and a form submission has been processed successfully.'
+            : 'Webhook is registered and verified in Connecteam. Submit the selected form once to confirm successful end-to-end processing.')
         : 'The saved webhook could not be verified in Connecteam. Save the automation again to repair it.'
     });
   } catch (error) {
