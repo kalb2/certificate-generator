@@ -1,8 +1,7 @@
-import { put } from '@vercel/blob';
-import { blobAuth } from '@/lib/blob';
 import { requireApiAuth } from '@/lib/auth';
 import { getWebhookToken } from '@/lib/webhook-auth';
 import { provisionFormWebhook } from '@/lib/connecteam-webhooks';
+import { putAdaptive } from '@/lib/private-blob';
 
 export const runtime='nodejs';
 
@@ -46,12 +45,10 @@ export async function POST(request){
       active:true
     };
 
-    await put('app-config/active-automation.json',JSON.stringify(setup),{
-      access:'private',
+    await putAdaptive('app-config/active-automation.json',JSON.stringify(setup),{
       contentType:'application/json',
       allowOverwrite:true,
-      addRandomSuffix:false,
-      ...blobAuth()
+      addRandomSuffix:false
     });
 
     return Response.json({
