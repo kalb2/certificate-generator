@@ -19,10 +19,29 @@ async function loadConfig() {
   return config;
 }
 
+async function recordWebhookDelivery(body) {
+  await put('app-config/webhook-health.json', JSON.stringify({
+    receivedAt: new Date().toISOString(),
+    requestId: String(body.requestId || ''),
+    eventType: String(body.eventType || ''),
+    formId: Number(body.data?.formId || 0)
+  }), {
+    access:'private',
+    contentType:'application/json',
+    allowOverwrite:true,
+    addRandomSuffix:false,
+    ...blobAuth()
+  });
+}
+
 export async function POST(request) {
   try {
-    const suppliedToken = new URL(request.url).searchParams.get('token');
-    if (!verifyWebhookToken(suppliedToken)) return Response.json({ error:'Unauthorized webhook' }, { status:401 });
+    const suppliedSecret = request.headers.get('x-webhook-secret');
+    const legacyToken = new URL(request.url).searchParams.get('token');
+    if (!verifyWebhookToken(suppliedSecret || legacyToken)) {
+      return Response.json({ error:'Unauthorized webhook' }, { status:401 });
+    }
+
     console.log('[0] Webhook received');
     const config = await loadConfig();
     console.log('[1] Config loaded', { formId: config.formId, hasLogo: !!(config.logoPath || config.logoUrl) });
@@ -32,6 +51,8 @@ export async function POST(request) {
 
     if (body.eventType !== 'form_submission') return Response.json({ ignored: true });
     if (Number(body.data?.formId) !== Number(config.formId)) return Response.json({ ignored: true, reason: 'Different form' });
+
+    await recordWebhookDelivery(body);
 
     const answers = body.data?.answers || [];
     const firstName = answerValue(answerById(answers, config.mapping.firstName));
