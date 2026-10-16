@@ -14,7 +14,7 @@ export async function POST(request){
     const apiKey = String(process.env.CONNECTEAM_API_KEY || '').trim();
     if (!apiKey) throw new Error('CONNECTEAM_API_KEY is missing from this deployment.');
 
-    const {formId,formName,mapping,logoPath,logoUrl}=await request.json();
+    const {formId,formName,mapping,logoPath,logoUrl,pdfOptions}=await request.json();
     if (!formId) throw new Error('Choose a Connecteam form first.');
 
     const origin=new URL(request.url).origin;
@@ -35,6 +35,7 @@ export async function POST(request){
       mapping,
       logoPath:logoPath||'',
       logoUrl:logoPath ? '' : (logoUrl||''),
+      pdfOptions:pdfOptions||{},
       webhookUrl,
       webhookId:webhook.webhookId,
       webhookName:webhook.webhookName,
