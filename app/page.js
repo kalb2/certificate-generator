@@ -51,7 +51,7 @@ export default async function Home() {
     <main>
       <AdminNav />
       <h1>Connecteam Certificate Automation</h1>
-      <p className="muted">One Connecteam account. One selected form. Automatic private PDF certificates.</p>
+      <p className="muted">One Connecteam account. One selected form. Automatic PDF certificates.</p>
 
       {!allReady && <div className="card setup-checklist-card">
         <div className="status-row">
@@ -77,12 +77,12 @@ export default async function Home() {
 
           <ChecklistItem
             done={status.storageReady}
-            title="Private Vercel Blob storage"
+            title="Vercel Blob storage"
             action={<div className="actions"><a className="button" href="https://vercel.com/dashboard" target="_blank" rel="noreferrer">Open Vercel dashboard</a></div>}
           >
             {status.storageReady
-              ? 'Private Blob storage is connected.'
-              : 'Open the Vercel project, go to Storage, create a Blob store with Private access, connect it to this project, then redeploy. Vercel handles the storage credentials automatically.'}
+              ? 'Vercel Blob storage is connected.'
+              : 'Open the Vercel project, go to Storage, create or connect a Blob store, then redeploy. Public and private Blob stores are both supported.'}
           </ChecklistItem>
 
           <ChecklistItem
@@ -94,12 +94,12 @@ export default async function Home() {
               ? 'A Connecteam form and webhook configuration are saved.'
               : status.storageReady
                 ? 'Choose the Connecteam form, map the certificate fields, upload a logo if desired, and save the automation.'
-                : 'Connect private Blob storage first. Then the setup screen can save the certificate configuration.'}
+                : 'Connect Blob storage first. Then the setup screen can save the certificate configuration.'}
           </ChecklistItem>
         </div>
       </div>}
 
-      {allReady && <div className="notice success"><strong>Setup complete.</strong> Private storage and the certificate automation are ready.</div>}
+      {allReady && <div className="notice success"><strong>Setup complete.</strong> Blob storage and the certificate automation are ready.</div>}
 
       <div className="card">
         <h2>Manage automation</h2>
@@ -110,8 +110,8 @@ export default async function Home() {
         </div>
       </div>
       <div className="card">
-        <h2>Private by default</h2>
-        <p>Setup, certificate history, and PDF downloads require the admin login. Generated certificates are stored in a private Vercel Blob store.</p>
+        <h2>Protected portal</h2>
+        <p>Setup, certificate history, and app download routes require the admin login. The connected Blob store may be public or private; choose private when you want the Blob objects themselves to be non-public.</p>
       </div>
     </main>
   );
