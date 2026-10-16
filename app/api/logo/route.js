@@ -1,6 +1,5 @@
-import { get, put } from '@vercel/blob';
-import { blobAuth } from '@/lib/blob';
 import { requireApiAuth } from '@/lib/auth';
+import { getAdaptiveBlob, putAdaptive } from '@/lib/private-blob';
 
 export const runtime = 'nodejs';
 
@@ -13,8 +12,9 @@ export async function GET(request) {
     if (!pathname || !pathname.startsWith('branding/')) {
       return Response.json({ error: 'Invalid logo path.' }, { status: 400 });
     }
-    const result = await get(pathname, { access: 'private', ...blobAuth() });
-    if (!result) return Response.json({ error: 'Logo not found.' }, { status: 404 });
+    const wrapped = await getAdaptiveBlob(pathname);
+    if (!wrapped) return Response.json({ error: 'Logo not found.' }, { status: 404 });
+    const result = wrapped.result;
     return new Response(result.stream, {
       headers: {
         'Content-Type': result.blob?.contentType || 'application/octet-stream',
@@ -37,12 +37,10 @@ export async function POST(request) {
     if (!String(file.type || '').startsWith('image/')) throw new Error('The logo must be an image.');
     if (Number(file.size || 0) > 5 * 1024 * 1024) throw new Error('The logo must be smaller than 5 MB.');
     const extension = String(file.name || 'logo.png').split('.').pop()?.replace(/[^a-z0-9]/gi, '') || 'png';
-    const blob = await put(`branding/company-logo.${extension}`, file, {
-      access: 'private',
+    const blob = await putAdaptive(`branding/company-logo.${extension}`, file, {
       contentType: file.type || 'application/octet-stream',
       allowOverwrite: true,
-      addRandomSuffix: false,
-      ...blobAuth()
+      addRandomSuffix: false
     });
     return Response.json({
       logoPath: blob.pathname,
