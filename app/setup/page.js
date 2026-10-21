@@ -313,7 +313,7 @@ export default function Setup() {
     {result && <div className="card">
       <h2>Automation status</h2>
       {result.created && result.verified
-        ? <div className="notice success"><strong>Webhook created and verified automatically.</strong> No manual Connecteam webhook setup is required.</div>
+        ? <div className="notice success"><strong>{result.webhookAction === 'updated' ? 'Existing webhook found, updated, and verified.' : 'New webhook created and verified.'}</strong> Connecteam webhook ID: {result.webhookId}. No manual Connecteam webhook setup is required.</div>
         : <div className="notice">Save the automation to create and verify the Connecteam webhook automatically.</div>}
       <p className="muted">After the first real form submission, the Webhook health section above will confirm end-to-end delivery.</p>
       <div className="actions"><a className="button secondary" href="/certificates">Open certificate history</a></div>
