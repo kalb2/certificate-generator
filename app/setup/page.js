@@ -252,59 +252,54 @@ export default function Setup() {
       {logoPreviewUrl && <div className="logo-preview"><img src={logoPreviewUrl} alt="Company logo preview" /><button className="secondary" onClick={removeLogo}>Remove logo</button></div>}
 
       <h2 className="section-heading">6. Certificate layout</h2>
-      <div className="row">
-        <div>
-          <label>Layout</label>
-          <select value={pdfOptions.layout} onChange={e=>updatePdfOption('layout',e.target.value)}>
-            <option value="department">Layout 1</option>
-            <option value="centered">Centered classic</option>
-          </select>
+      <p className="muted layout-intro">Customize the design below. The preview updates automatically so you can check spacing before saving.</p>
+
+      <section className="layout-group">
+        <h3>Layout and logo</h3>
+        <div className="row">
+          <div>
+            <label>Certificate style</label>
+            <select value={pdfOptions.layout} onChange={e=>updatePdfOption('layout',e.target.value)}>
+              <option value="department">Layout 1</option>
+              <option value="centered">Centered classic</option>
+            </select>
+          </div>
+          <div>
+            <label>Logo width: {Number(pdfOptions.logoSize) || 330} pt maximum</label>
+            <input className="logo-size-slider" aria-label="Certificate logo size" type="range" min="160" max="420" step="10" value={Number(pdfOptions.logoSize) || 330} onChange={e=>updatePdfOption('logoSize',Number(e.target.value))} />
+            <p className="muted compact-help">The logo stays inside the certificate border with space around it.</p>
+          </div>
         </div>
-        <div>
-          <label>Logo size: {Number(pdfOptions.logoSize) || 330} pt maximum width</label>
-          <input className="logo-size-slider" aria-label="Certificate logo size" type="range" min="160" max="420" step="10" value={Number(pdfOptions.logoSize) || 330} onChange={e=>updatePdfOption('logoSize',Number(e.target.value))} />
-          <p className="muted">Drag to resize the logo in the PDF preview.</p>
+      </section>
+
+      <section className="layout-group">
+        <h3>Certificate wording</h3>
+        <div className="row">
+          <div><label>Certificate title</label><input value={pdfOptions.title} onChange={e=>updatePdfOption('title',e.target.value)} /></div>
+          <div><label>Intro text</label><input value={pdfOptions.introText} onChange={e=>updatePdfOption('introText',e.target.value)} /></div>
+          <div><label>Completion text</label><input value={pdfOptions.completionText} onChange={e=>updatePdfOption('completionText',e.target.value)} /></div>
+          <div><label>Date prefix</label><input value={pdfOptions.datePrefix} onChange={e=>updatePdfOption('datePrefix',e.target.value)} placeholder="Leave blank for date only" /></div>
+          <div><label>Signature label</label><input value={pdfOptions.signatureLabel} onChange={e=>updatePdfOption('signatureLabel',e.target.value)} /></div>
         </div>
-        <div>
-          <label>Certificate title</label>
-          <input value={pdfOptions.title} onChange={e=>updatePdfOption('title',e.target.value)} />
+      </section>
+
+      <section className="layout-group">
+        <h3>Colors and details</h3>
+        <div className="row">
+          <div><label>Primary color</label><input type="color" value={pdfOptions.primaryColor} onChange={e=>updatePdfOption('primaryColor',e.target.value)} /></div>
+          <div><label>Accent color</label><input type="color" value={pdfOptions.accentColor} onChange={e=>updatePdfOption('accentColor',e.target.value)} /></div>
+          <div>
+            <label>Expiration notice</label>
+            <label className="checkbox-label"><input type="checkbox" checked={pdfOptions.showExpiryNotice !== false} onChange={e=>updatePdfOption('showExpiryNotice',e.target.checked)} /> Show the one-year expiration notice below the date</label>
+          </div>
+          <div>
+            <label>Border</label>
+            <select value={pdfOptions.showOuterBorder ? 'yes' : 'no'} onChange={e=>updatePdfOption('showOuterBorder',e.target.value === 'yes')}>
+              <option value="yes">Show border</option><option value="no">No border</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label>Intro text</label>
-          <input value={pdfOptions.introText} onChange={e=>updatePdfOption('introText',e.target.value)} />
-        </div>
-        <div>
-          <label>Completion text</label>
-          <input value={pdfOptions.completionText} onChange={e=>updatePdfOption('completionText',e.target.value)} />
-        </div>
-        <div>
-          <label>Date prefix</label>
-          <input value={pdfOptions.datePrefix} onChange={e=>updatePdfOption('datePrefix',e.target.value)} placeholder="Leave blank for date only" />
-        </div>
-        <div>
-          <label>Signature label</label>
-          <input value={pdfOptions.signatureLabel} onChange={e=>updatePdfOption('signatureLabel',e.target.value)} />
-        </div>
-        <div>
-          <label>Primary color</label>
-          <input type="color" value={pdfOptions.primaryColor} onChange={e=>updatePdfOption('primaryColor',e.target.value)} />
-        </div>
-        <div>
-          <label>Accent color</label>
-          <input type="color" value={pdfOptions.accentColor} onChange={e=>updatePdfOption('accentColor',e.target.value)} />
-        </div>
-        <div>
-          <label>Expiration notice</label>
-          <label className="checkbox-label"><input type="checkbox" checked={pdfOptions.showExpiryNotice !== false} onChange={e=>updatePdfOption('showExpiryNotice',e.target.checked)} /> Show “*This certificate expires 1 year from the issued date” below the date</label>
-        </div>
-        <div>
-          <label>Border</label>
-          <select value={pdfOptions.showOuterBorder ? 'yes' : 'no'} onChange={e=>updatePdfOption('showOuterBorder',e.target.value === 'yes')}>
-            <option value="yes">Show border</option>
-            <option value="no">No border</option>
-          </select>
-        </div>
-      </div>
+      </section>
 
       <h2 className="section-heading">7. PDF preview</h2>
       <div className="status-row">
