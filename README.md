@@ -1,6 +1,6 @@
 # Connecteam Certificate Generator
 
-A single-client Connecteam certificate automation. When the selected Connecteam form is submitted, the app generates a PDF certificate, stores it privately in Vercel Blob, records it in certificate history, and can post the completed certificate into a Connecteam chat.
+A single-client Connecteam certificate automation. When the selected Connecteam form is submitted, the app generates a PDF certificate, stores it in Vercel Blob, records it in certificate history, and can post the completed certificate into a Connecteam chat.
 
 Each client should deploy their **own copy** into **their own Vercel account**. Their Connecteam credentials, admin login, Blob storage, deployment, and generated certificates remain under their control.
 
@@ -14,14 +14,98 @@ The Deploy with Vercel flow should ask for all four required values on the same 
 
 | Variable | Purpose |
 | --- | --- |
-| `CONNECTEAM_API_KEY` | Client's Connecteam API key. Used for form discovery, certificate delivery, and webhook processing. |
+| `CONNECTEAM_API_KEY` | Client's Connecteam API key. Used for form discovery, certificate delivery, and automatic webhook registration/processing. |
 | `CONNECTEAM_SENDER_ID` | Connecteam sender/custom publisher ID used for chat messages. |
 | `CERTIFICATE_ADMIN_EMAIL` | Email used to sign into the certificate portal. |
 | `CERTIFICATE_ADMIN_PASSWORD` | Password used to sign into the certificate portal. Use a unique password of at least 16 characters. |
 
 The app still accepts the older `ADMIN_EMAIL` and `ADMIN_PASSWORD` names for existing deployments, but new deployments should use the certificate-specific names above.
 
-Optional:
+## Step-by-step setup
+
+### Step 1 — Deploy to Vercel
+
+1. Click **Deploy with Vercel** above.
+2. Sign in to Vercel.
+3. Choose the Vercel account/team that should own the app.
+4. Create a new Git repository when Vercel asks where to copy the source.
+5. Enter all four requested values: `CONNECTEAM_API_KEY`, `CONNECTEAM_SENDER_ID`, `CERTIFICATE_ADMIN_EMAIL`, and `CERTIFICATE_ADMIN_PASSWORD`.
+6. Deploy the project.
+
+Vercel saves those values directly on the project. You should not need to add them again manually in **Settings → Environment Variables**.
+
+### Step 2 — Connect Vercel Blob storage
+
+1. Open the new Vercel project.
+2. Go to **Storage** and create a **Blob** store, or connect an existing Blob store.
+3. Connect the store to this project.
+4. Use Vercel's default OIDC authentication if offered.
+5. Redeploy after connecting storage if Vercel requires it.
+
+The app supports public or private Blob stores. **Private access is recommended for certificates** because certificate files contain personal information. The app's authenticated certificate-download route protects downloads when using private storage.
+
+### Step 3 — Sign in
+
+Open the deployed site. You will be sent to `/login`.
+
+Use the email and password entered during deployment. There is no public signup page.
+
+### Step 4 — Configure the certificate automation
+
+1. After signing in, open **Setup**.
+2. Confirm the storage check succeeds.
+3. Click **Find my forms**.
+4. Select the form that should create certificates.
+5. Confirm the detected mappings:
+   - First name — required
+   - Last name — required
+   - Course name — optional
+   - Completion date — optional
+   - Signature — required
+6. Upload a company logo and adjust the PDF layout if desired.
+7. Click **Save automation**.
+
+You do **not** paste the Connecteam API key again in Setup. Form discovery uses the `CONNECTEAM_API_KEY` already stored in the Vercel deployment.
+
+**The app registers the Connecteam webhook automatically when you save the automation.** It checks for a matching webhook first: if one already exists, it updates and verifies it; if not, it creates and verifies a new one. You do not need to create a webhook manually in Connecteam.
+
+### Step 5 — Confirm webhook registration
+
+After saving the automation, check the webhook status shown in Setup.
+
+- **Registered and verified in Connecteam** means the webhook registration was checked successfully.
+- **Live delivery not confirmed yet** means the app has not yet confirmed processing a real form submission. Submit the selected form once to test end-to-end delivery.
+
+If registration fails, check that the Connecteam API key has the required access to read and manage webhooks/settings, and review the error shown in Setup. Do not create a second webhook manually as a workaround unless your Connecteam administrator specifically directs you to.
+
+### Step 6 — Configure certificate chat delivery
+
+The app searches for the first Connecteam conversation whose title contains:
+
+```text
+Certificates Automation
+```
+
+Examples:
+- `Certificates Automation`
+- `HR - Certificates Automation`
+
+If no matching conversation is found or chat delivery is unavailable, certificate generation can still complete; the chat message simply will not be sent.
+
+### Step 7 — Test the full workflow
+
+1. Submit the configured Connecteam form.
+2. Confirm Setup shows that live webhook delivery has been confirmed, if that status is available.
+3. Sign into the certificate portal.
+4. Open **Certificates** and confirm the new record appears.
+5. Click **Download** and confirm the PDF downloads while logged in.
+6. Confirm the certificate arrives in the expected Connecteam chat if chat delivery is enabled.
+
+The setup screen requires mappings for first name, last name, and signature. Course name and completion date are optional.
+
+> Australian Connecteam accounts may need the API host changed from `https://api.connecteam.com` to `https://api-au.connecteam.com` before deployment.
+
+## Optional deployment values
 
 | Variable | Purpose |
 | --- | --- |
@@ -46,127 +130,13 @@ Protected:
 Public by design:
 - `/login`
 - `/api/auth/login`
-- `/api/connecteam/webhook` is internet-reachable because Connecteam must call it, but the generated webhook URL contains a secret token derived from the client's Connecteam API key. Requests without the correct token are rejected.
+- `/api/connecteam/webhook` is internet-reachable because Connecteam must call it, but the generated webhook URL contains a secret token. Requests without the correct token are rejected.
 
 Admin sessions use a signed, HttpOnly, SameSite cookie and expire after 12 hours. No user database or third-party authentication service is required.
 
-## Before you deploy
-
-You need:
-
-1. A Connecteam API key for the client's account.
-2. A Connecteam sender/custom publisher ID for certificate chat messages.
-3. A Connecteam conversation whose title contains **Certificates Automation** if chat delivery is desired.
-4. A Connecteam form containing the certificate fields.
-5. A Vercel account.
-
-The setup screen requires mappings for first name, last name, and signature. Course name and completion date are optional.
-
-> Australian Connecteam accounts currently require changing the API host from `https://api.connecteam.com` to `https://api-au.connecteam.com` before deployment.
-
-## Step 1 — Deploy to Vercel
-
-1. Click **Deploy with Vercel** above.
-2. Sign in to Vercel.
-3. Choose the Vercel account/team that should own the app.
-4. Create a new Git repository when Vercel asks where to copy the source.
-5. Enter all four requested values:
-   - `CONNECTEAM_API_KEY`
-   - `CONNECTEAM_SENDER_ID`
-   - `CERTIFICATE_ADMIN_EMAIL`
-   - `CERTIFICATE_ADMIN_PASSWORD`
-6. Deploy the project.
-
-Vercel saves those values directly on the project. You should not need to add them again manually in **Settings → Environment Variables**.
-
-## Step 2 — Create a PRIVATE Vercel Blob store
-
-1. Open the new Vercel project.
-2. Go to **Storage**.
-3. Create a **Blob** store.
-4. Choose **Private** access.
-5. Connect it to this project.
-6. Use Vercel's default OIDC authentication if offered.
-7. Redeploy after connecting storage.
-
-Do **not** use a public Blob store for certificates.
-
-## Step 3 — Sign in
-
-Open the deployed site. You will be sent to `/login`.
-
-Use the email and password entered during deployment.
-
-There is no public signup page.
-
-## Step 4 — Configure the certificate automation
-
-1. After signing in, open **Setup**.
-2. Confirm the storage check succeeds.
-3. Click **Find my forms**.
-4. Select the form that should create certificates.
-5. Confirm the detected mappings:
-   - First name — required
-   - Last name — required
-   - Course name — optional
-   - Completion date — optional
-   - Signature — required
-6. Upload a company logo if desired.
-7. Click **Save automation**.
-8. Copy the webhook URL shown by the app.
-
-You do **not** paste the Connecteam API key again in Setup. Form discovery uses the `CONNECTEAM_API_KEY` already stored in the Vercel deployment.
-
-The saved automation configuration and uploaded logo are stored privately in Vercel Blob.
-
-## Step 5 — Create the Connecteam webhook
-
-The app currently expects one manual Connecteam webhook.
-
-1. In Connecteam, go to **Settings → API & Integrations**.
-2. Add a webhook.
-3. Choose the Forms feature.
-4. Choose the certificate form.
-5. Choose the form-submission event.
-6. Paste the webhook URL displayed by the app.
-7. Save it.
-
-The URL will look similar to:
-
-```text
-https://your-project.vercel.app/api/connecteam/webhook?token=...
-```
-
-Do not remove the `?token=...` portion.
-
-## Step 6 — Configure certificate chat delivery
-
-The app searches for the first Connecteam conversation whose title contains:
-
-```text
-Certificates Automation
-```
-
-Examples:
-- `Certificates Automation`
-- `HR - Certificates Automation`
-
-If chat credentials are missing or no matching conversation is found, certificate generation can still complete; the chat message simply will not be sent.
-
-## Step 7 — Test
-
-1. Submit the configured Connecteam form.
-2. Confirm the webhook succeeds.
-3. Sign into the certificate portal.
-4. Open **Certificates**.
-5. Confirm the new record appears.
-6. Click **Download**.
-7. Confirm the PDF downloads only while logged in.
-8. Confirm the certificate arrives in the expected Connecteam chat if chat delivery is enabled.
-
 ## Private certificate downloads
 
-Generated PDFs are uploaded with private Blob access. Certificate history stores the private Blob pathname, not a public download URL. When an admin clicks **Download**, the app verifies the session, loads the private PDF server-side, and streams it back to the authenticated browser.
+Certificate history stores the Blob pathname rather than a public download URL. When an admin clicks **Download**, the app verifies the session and streams the PDF back to the authenticated browser.
 
 ## Changing the admin password
 
@@ -182,15 +152,19 @@ For new deployments, confirm both `CERTIFICATE_ADMIN_EMAIL` and `CERTIFICATE_ADM
 
 ### Storage check fails
 
-Confirm a Vercel Blob store is connected to the project and that it is **Private**.
+Confirm a Vercel Blob store is connected to the project and that the app can access it. Private access is recommended for certificate files.
 
 ### Forms do not load
 
-Confirm `CONNECTEAM_API_KEY` exists in the Vercel deployment and has access to Forms. The setup page does not accept a second API key anymore.
+Confirm `CONNECTEAM_API_KEY` exists in the Vercel deployment and has access to Forms. The setup page does not accept a second API key.
+
+### Webhook registration fails
+
+Confirm the API key has the required Connecteam settings/webhook permissions. Click **Save automation** again after resolving permissions; the app will check for an existing matching webhook and update it or create one as needed.
 
 ### Certificate does not appear
 
-Check the Vercel function logs for `/api/connecteam/webhook`, confirm the webhook event is a form submission, and confirm the webhook is configured for the same form selected in Setup.
+Check the Vercel function logs for `/api/connecteam/webhook`, confirm the selected form is the one being submitted, and check the webhook status in Setup.
 
 ### Chat message is not sent
 
@@ -202,4 +176,4 @@ Confirm:
 
 ## Security notes
 
-This is intentionally a simple single-admin application, not a multi-user SaaS authentication system. For the intended one-client/one-deployment model it provides a login gate, signed HttpOnly session cookies, private certificate storage, authenticated downloads, private configuration storage, no public certificate URLs, and a secret token on the Connecteam webhook URL.
+This is intentionally a simple single-admin application, not a multi-user SaaS authentication system. For the intended one-client/one-deployment model it provides a login gate, signed HttpOnly session cookies, authenticated downloads, private configuration storage, and a secret token on the Connecteam webhook URL.
