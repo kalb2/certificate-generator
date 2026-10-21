@@ -266,8 +266,8 @@ export default function Setup() {
           </div>
           <div>
             <label>Logo width: {Number(pdfOptions.logoSize) || 330} pt maximum</label>
-            <input className="logo-size-slider" aria-label="Certificate logo size" type="range" min="160" max="420" step="10" value={Number(pdfOptions.logoSize) || 330} onChange={e=>updatePdfOption('logoSize',Number(e.target.value))} />
-            <p className="muted compact-help">The logo stays inside the certificate border with space around it.</p>
+            <input className="logo-size-slider" aria-label="Certificate logo size" type="range" min="160" max="600" step="10" value={Number(pdfOptions.logoSize) || 330} onChange={e=>updatePdfOption('logoSize',Number(e.target.value))} />
+            <p className="muted compact-help">Increase the width up to 600 pt; the preview keeps the logo within the border and clear of the title.</p>
           </div>
         </div>
       </section>
