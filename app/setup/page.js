@@ -15,8 +15,9 @@ const defaultPdfOptions = {
   signatureLabel:'Trainer Signature',
   primaryColor:'#111111',
   accentColor:'#111111',
-  logoSize:'medium',
-  showOuterBorder:true
+  logoSize:330,
+  showOuterBorder:true,
+  showExpiryNotice:true
 };
 
 export default function Setup() {
@@ -179,7 +180,7 @@ export default function Setup() {
         <tr><th>Form</th><td>{savedSetup.formName}</td></tr>
         <tr><th>Created</th><td>{new Date(savedSetup.createdAt).toLocaleString()}</td></tr>
         <tr><th>Logo</th><td>{savedSetup.logoPath || savedSetup.logoUrl ? 'Included' : 'Not included'}</td></tr>
-        <tr><th>PDF layout</th><td>{pdfOptions.layout === 'department' ? 'Reference certificate style' : 'Centered classic'}</td></tr>
+        <tr><th>PDF layout</th><td>{pdfOptions.layout === 'department' ? 'Layout 1' : 'Centered classic'}</td></tr>
         <tr><th>Webhook</th><td>{savedSetup.webhookId ? `Connecteam webhook #${savedSetup.webhookId}` : 'Will be created automatically when you save'}</td></tr>
       </tbody></table>
     </div>}
@@ -246,17 +247,14 @@ export default function Setup() {
         <div>
           <label>Layout</label>
           <select value={pdfOptions.layout} onChange={e=>updatePdfOption('layout',e.target.value)}>
-            <option value="department">Reference certificate style</option>
+            <option value="department">Layout 1</option>
             <option value="centered">Centered classic</option>
           </select>
         </div>
         <div>
-          <label>Logo size</label>
-          <select value={pdfOptions.logoSize} onChange={e=>updatePdfOption('logoSize',e.target.value)}>
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
+          <label>Logo size: {Number(pdfOptions.logoSize) || 330}px max width</label>
+          <input type="range" min="160" max="420" step="10" value={Number(pdfOptions.logoSize) || 330} onChange={e=>updatePdfOption('logoSize',Number(e.target.value))} />
+          <p className="muted">Drag to resize the logo in the PDF preview.</p>
         </div>
         <div>
           <label>Certificate title</label>
@@ -285,6 +283,10 @@ export default function Setup() {
         <div>
           <label>Accent color</label>
           <input type="color" value={pdfOptions.accentColor} onChange={e=>updatePdfOption('accentColor',e.target.value)} />
+        </div>
+        <div>
+          <label>Expiration notice</label>
+          <label className="checkbox-label"><input type="checkbox" checked={pdfOptions.showExpiryNotice !== false} onChange={e=>updatePdfOption('showExpiryNotice',e.target.checked)} /> Show “*This certificate expires 1 year from the issued date” below the date</label>
         </div>
         <div>
           <label>Border</label>
