@@ -93,7 +93,16 @@ export default function Setup() {
         setSavedSetup(d.setup);
         setFormId(String(d.setup.formId || ''));
         setMapping(d.setup.mapping || {});
-        setPdfOptions({...defaultPdfOptions, ...(d.setup.pdfOptions || {})});
+        const savedPdfOptions = d.setup.pdfOptions || {};
+        const legacyLogoWidths = { small:170, medium:330, large:400 };
+        setPdfOptions({
+          ...defaultPdfOptions,
+          ...savedPdfOptions,
+          logoSize: typeof savedPdfOptions.logoSize === 'number'
+            ? savedPdfOptions.logoSize
+            : (legacyLogoWidths[savedPdfOptions.logoSize] || 330),
+          showExpiryNotice: savedPdfOptions.showExpiryNotice !== false
+        });
         if (d.setup.logoPath) {
           setLogoPath(d.setup.logoPath);
           setLogoPreviewUrl(`/api/logo?path=${encodeURIComponent(d.setup.logoPath)}`);
@@ -252,8 +261,8 @@ export default function Setup() {
           </select>
         </div>
         <div>
-          <label>Logo size: {Number(pdfOptions.logoSize) || 330}px max width</label>
-          <input type="range" min="160" max="420" step="10" value={Number(pdfOptions.logoSize) || 330} onChange={e=>updatePdfOption('logoSize',Number(e.target.value))} />
+          <label>Logo size: {Number(pdfOptions.logoSize) || 330} pt maximum width</label>
+          <input className="logo-size-slider" aria-label="Certificate logo size" type="range" min="160" max="420" step="10" value={Number(pdfOptions.logoSize) || 330} onChange={e=>updatePdfOption('logoSize',Number(e.target.value))} />
           <p className="muted">Drag to resize the logo in the PDF preview.</p>
         </div>
         <div>
