@@ -61,3 +61,16 @@ input.logo-size-slider {
   accent-color:#2457d6;
   cursor:pointer;
 }
+
+
+/* Certificate layout wizard groups */
+.layout-intro{margin-top:-4px;margin-bottom:18px}
+.layout-group{border:1px solid #e1e7f0;border-radius:12px;padding:16px 18px 18px;margin:14px 0;background:#fbfcfe}
+.layout-group h3{font-size:16px;margin:0 0 8px;color:#273650}
+.layout-group .row{column-gap:22px;row-gap:4px}
+.layout-group label{margin-top:12px}
+.layout-group .compact-help{margin:7px 0 0;font-size:13px}
+.layout-group input[type=color]{width:72px;height:44px;padding:4px;cursor:pointer}
+.layout-group .checkbox-label{display:flex;align-items:flex-start;gap:9px;font-weight:500;line-height:1.45}
+.layout-group .checkbox-label input{width:auto;flex:0 0 auto;margin-top:4px}
+@media(max-width:700px){.layout-group{padding:14px}}
