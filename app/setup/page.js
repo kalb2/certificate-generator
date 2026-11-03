@@ -284,9 +284,9 @@ export default function Setup() {
         <div className="status-row"><h3>Additional workflow {i+1}</h3><button type="button" className="secondary" onClick={()=>setWorkflowDrafts(current=>current.filter((_,j)=>j!==i))}>Remove</button></div>
         <label>Connecteam form</label><select value={w.formId} onChange={e=>loadDraftForm(i,e.target.value)}><option value="">Choose form</option>{forms.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select>
         <label>Destination document</label><select value={w.documentId||''} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,documentId:e.target.value}:x))}><option value="">No Connecteam document</option>{documents.map(d=><option key={d.id} value={d.id}>{d.name} (#{d.id})</option>)}</select>
-        <label>Field mapping (automatically detected; adjust if needed)</label>
+        <label>Field mapping (question IDs)</label>
         <div className="row">
-          {Object.entries(fieldLabels).map(([key,label])=><div key={key}><label>{label}</label><select value={w.mapping?.[key]||''} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,mapping:{...(x.mapping||{}),[key]:e.target.value}}:x))}/></div>)}
+          {Object.entries(fieldLabels).map(([key,label])=><div key={key}><label>{label}</label><input value={w.mapping?.[key]||''} placeholder="Question ID" onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,mapping:{...(x.mapping||{}),[key]:e.target.value}}:x))}/></div>)}
         </div>
         <label>Certificate title</label><input value={w.pdfOptions?.title||defaultPdfOptions.title} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),title:e.target.value}}:x))}/>
         <label>Expiration notice</label><label className="checkbox-label"><input type="checkbox" checked={w.pdfOptions?.showExpiryNotice!==false} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),showExpiryNotice:e.target.checked}}:x))}/> Show one-year expiration notice</label>
