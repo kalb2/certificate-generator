@@ -96,6 +96,7 @@ export default function Setup() {
         setSavedSetup(d.setup);
         setFormId(String(d.setup.formId || ''));
         setDocumentId(String(d.setup.documentId || d.setup.workflows?.[0]?.documentId || ''));
+        setWorkflowDrafts(Array.isArray(d.setup.workflows) ? d.setup.workflows : []);
         setMapping(d.setup.mapping || {});
         const savedPdfOptions = d.setup.pdfOptions || {};
         const legacyLogoWidths = { small:170, medium:330, large:400 };
@@ -169,7 +170,7 @@ export default function Setup() {
     try {
       const formName = selectedForm?.name || savedSetup?.formName || 'Selected form';
       const legacyLogoUrl = !logoPath && savedSetup?.logoUrl ? savedSetup.logoUrl : '';
-      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoPath,logoUrl:legacyLogoUrl,pdfOptions,documentId})});
+      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({workflows:[{formId,formName,mapping,logoPath,logoUrl:legacyLogoUrl,pdfOptions,documentId},...workflowDrafts.filter(w=>String(w.formId)!==String(formId))]})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to create automation.');
       setResult(d); setSavedSetup(d.setup);
       setMessage(`Automation saved. Connecteam webhook ${d.webhookAction === 'updated' ? 'updated' : 'created'} and verified successfully.`);
@@ -190,7 +191,7 @@ export default function Setup() {
   return <main>
     <AdminNav />
     <h1>Set up certificate automation</h1>
-    <p className="muted">Use this page to create or update the single active automation for this Connecteam account.</p>
+    <p className="muted">Configure certificate workflows for multiple Connecteam forms and route each to its own employee document.</p>
 
     {savedSetup && <div className="card active-card">
       <div className="status-row"><h2>Saved certificate configuration</h2><span className="status-pill">Active</span></div>
@@ -253,6 +254,16 @@ export default function Setup() {
           </select>
         </div>)}
       </div>
+
+      <h2 className="section-heading">5. Form-to-document workflows</h2>
+      <p className="muted">The current form above is the primary workflow. Add other forms below and assign a different Connecteam document to each.</p>
+      <div className="actions"><button type="button" className="secondary" onClick={()=>{if(!forms.length){discoverForms();return;}setWorkflowDrafts(current=>[...current,{formId:'',formName:'',mapping:{},documentId:'',logoPath:'',pdfOptions:{...defaultPdfOptions},active:true}]);}}>+ Add another form workflow</button></div>
+      {workflowDrafts.map((w,i)=><div className="card" key={i}>
+        <div className="status-row"><h3>Additional workflow {i+1}</h3><button type="button" className="secondary" onClick={()=>setWorkflowDrafts(current=>current.filter((_,j)=>j!==i))}>Remove</button></div>
+        <label>Connecteam form</label><select value={w.formId} onChange={e=>{const f=forms.find(x=>String(x.id)===e.target.value);setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,formId:e.target.value,formName:f?.name||''}:x));}}><option value="">Choose form</option>{forms.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select>
+        <label>Destination document</label><select value={w.documentId||''} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,documentId:e.target.value}:x))}><option value="">No Connecteam document</option>{documents.map(d=><option key={d.id} value={d.id}>{d.name} (#{d.id})</option>)}</select>
+        <p className="muted">This workflow has its own form and document route. Field mapping and certificate design are currently shared with the primary workflow.</p>
+      </div>)}
 
       <h2 className="section-heading">5. Connecteam document destination</h2>
       <p className="muted">Optionally submit generated certificates to the employee's assigned Connecteam document pack.</p>
