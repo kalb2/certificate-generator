@@ -44,15 +44,17 @@ export async function POST(request) {
     const body = await request.json();
 
     if (body.eventType !== 'form_submission') return Response.json({ ignored: true });
-    if (Number(body.data?.formId) !== Number(config.formId)) return Response.json({ ignored: true, reason: 'Different form' });
+    const workflows = Array.isArray(config.workflows) && config.workflows.length ? config.workflows : [config];
+    const workflow = workflows.find(w => Number(body.data?.formId) === Number(w.formId));
+    if (!workflow) return Response.json({ ignored: true, reason: 'No workflow configured for this form' });
 
     const answers = body.data?.answers || [];
-    const firstName = answerValue(answerById(answers, config.mapping.firstName));
-    const lastName = answerValue(answerById(answers, config.mapping.lastName));
-    const courseName = answerValue(answerById(answers, config.mapping.courseName)) || config.formName;
-    const completionDate = answerValue(answerById(answers, config.mapping.completionDate)) || new Date(Number(body.data.submissionTimestamp) * 1000).toLocaleDateString('en-US');
-    const signature = signatureUrl(answerById(answers, config.mapping.signature));
-    const logoBytes = config.logoPath ? await readPrivateBytes(config.logoPath) : null;
+    const firstName = answerValue(answerById(answers, workflow.mapping.firstName));
+    const lastName = answerValue(answerById(answers, workflow.mapping.lastName));
+    const courseName = answerValue(answerById(answers, workflow.mapping.courseName)) || workflow.formName;
+    const completionDate = answerValue(answerById(answers, workflow.mapping.completionDate)) || new Date(Number(body.data.submissionTimestamp) * 1000).toLocaleDateString('en-US');
+    const signature = signatureUrl(answerById(answers, workflow.mapping.signature));
+    const logoBytes = workflow.logoPath ? await readPrivateBytes(workflow.logoPath) : null;
 
     const bytes = await buildCertificate({
       firstName,
@@ -60,9 +62,9 @@ export async function POST(request) {
       courseName,
       completionDate,
       signature,
-      logoUrl: config.logoUrl || '',
+      logoUrl: workflow.logoUrl || '',
       logoBytes,
-      pdfOptions: config.pdfOptions || {}
+      pdfOptions: workflow.pdfOptions || {}
     });
 
     const submissionId = String(body.data.formSubmissionId || Date.now());
@@ -72,6 +74,7 @@ export async function POST(request) {
       addRandomSuffix:true
     });
 
+    let documentDelivery = null;
     if (process.env.CONNECTEAM_API_KEY && process.env.CONNECTEAM_SENDER_ID) {
       const fileId = await uploadPdfToConnecteam({ apiKey: process.env.CONNECTEAM_API_KEY, bytes, fileName: 'certificate.pdf' });
       const chat = await findCertificateChat(process.env.CONNECTEAM_API_KEY);
@@ -86,12 +89,28 @@ export async function POST(request) {
         });
       }
     }
+    if (workflow.documentId && body.data?.userId && process.env.CONNECTEAM_API_KEY) {
+      const { uploadPdfToEmployeeDocument } = await import('@/lib/connecteam-documents');
+      const pushed = await uploadPdfToEmployeeDocument({
+        apiKey:process.env.CONNECTEAM_API_KEY,
+        userId:Number(body.data.userId),
+        documentId:Number(workflow.documentId),
+        bytes,
+        fileName:'certificate.pdf',
+        expiresAt:workflow.expiresAt ? Math.floor(new Date(workflow.expiresAt).getTime()/1000) : undefined
+      });
+      documentDelivery = { documentId:Number(workflow.documentId), status:pushed.status };
+    }
 
     const record = {
       submissionId,
       firstName,
       lastName,
       courseName,
+      formId:Number(workflow.formId),
+      formName:workflow.formName,
+      documentId:workflow.documentId ? Number(workflow.documentId) : null,
+      documentDelivery,
       completionDate,
       certificatePath: blob.pathname,
       createdAt: new Date().toISOString()
