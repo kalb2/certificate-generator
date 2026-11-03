@@ -89,15 +89,17 @@ export async function POST(request) {
         });
       }
     }
-    if (workflow.documentId && body.data?.userId && process.env.CONNECTEAM_API_KEY) {
+    if (workflow.documentId && process.env.CONNECTEAM_API_KEY) {
+      if (!body.data?.userId) throw new Error('This form submission did not include an employee userId, so the certificate cannot be attached to an employee document.');
       const { uploadPdfToEmployeeDocument } = await import('@/lib/connecteam-documents');
       const pushed = await uploadPdfToEmployeeDocument({
         apiKey:process.env.CONNECTEAM_API_KEY,
         userId:Number(body.data.userId),
         documentId:Number(workflow.documentId),
         bytes,
-        fileName:'certificate.pdf',
-        expiresAt:workflow.expiresAt ? Math.floor(new Date(workflow.expiresAt).getTime()/1000) : undefined
+        fileName:safeName(firstName) + '-' + submissionId + '.pdf',
+        issuedAt:Number(body.data.submissionTimestamp) || Math.floor(Date.now()/1000),
+        showExpiryNotice:workflow.pdfOptions?.showExpiryNotice !== false
       });
       documentDelivery = { documentId:Number(workflow.documentId), status:pushed.status };
     }
