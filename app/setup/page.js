@@ -25,6 +25,7 @@ export default function Setup() {
   const [documents,setDocuments] = useState([]);
   const [documentId,setDocumentId] = useState('');
   const [documentsLoaded,setDocumentsLoaded] = useState(false);
+  const [workflowDrafts,setWorkflowDrafts] = useState([]);
   const [formId,setFormId] = useState('');
   const [questions,setQuestions] = useState([]);
   const [mapping,setMapping] = useState({});
@@ -126,8 +127,29 @@ export default function Setup() {
   }, [questions.length, pdfOptions, logoPath, selectedForm?.name, savedSetup?.formName]);
 
   async function discoverDocuments(){
-    try { const r=await fetch('/api/connecteam/documents',{method:'POST'}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not load documents'); setDocuments(d.documents||[]); setDocumentsLoaded(true); }
-    catch(e){setError(e.message);}
+    setError('');
+    try {
+      const r=await fetch('/api/connecteam/documents',{method:'POST'});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.error||'Could not load documents');
+      setDocuments(d.documents||[]);
+      setDocumentsLoaded(true);
+      if (!(d.documents||[]).length) setMessage('No uploadable employee documents were returned. Check Documents read access and configured document packs.');
+    } catch(e){setError(e.message);}
+  }
+
+  async function loadDraftForm(index,id){
+    const selected=forms.find(f=>String(f.id)===String(id));
+    setWorkflowDrafts(current=>current.map((w,i)=>i===index?{...w,formId:id,formName:selected?.name||'',mapping:{},questions:[]}:w));
+    if(!id) return;
+    setBusy(true); setError('');
+    try {
+      const r=await fetch('/api/connecteam/form',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId:id})});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.error||'Unable to read questions for this form.');
+      setWorkflowDrafts(current=>current.map((w,i)=>i===index?{...w,mapping:d.mapping||{},questions:d.questions||[]}:w));
+    } catch(e){setError(e.message);}
+    finally {setBusy(false);}
   }
 
   async function discoverForms(){
@@ -260,15 +282,15 @@ export default function Setup() {
       <div className="actions"><button type="button" className="secondary" onClick={()=>{if(!forms.length){discoverForms();return;}setWorkflowDrafts(current=>[...current,{formId:'',formName:'',mapping:{},documentId:'',logoPath:'',pdfOptions:{...defaultPdfOptions},active:true}]);}}>+ Add another form workflow</button></div>
       {workflowDrafts.map((w,i)=><div className="card" key={i}>
         <div className="status-row"><h3>Additional workflow {i+1}</h3><button type="button" className="secondary" onClick={()=>setWorkflowDrafts(current=>current.filter((_,j)=>j!==i))}>Remove</button></div>
-        <label>Connecteam form</label><select value={w.formId} onChange={e=>{const f=forms.find(x=>String(x.id)===e.target.value);setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,formId:e.target.value,formName:f?.name||''}:x));}}><option value="">Choose form</option>{forms.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select>
+        <label>Connecteam form</label><select value={w.formId} onChange={e=>loadDraftForm(i,e.target.value)}><option value="">Choose form</option>{forms.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select>
         <label>Destination document</label><select value={w.documentId||''} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,documentId:e.target.value}:x))}><option value="">No Connecteam document</option>{documents.map(d=><option key={d.id} value={d.id}>{d.name} (#{d.id})</option>)}</select>
-        <label>Field mapping (question IDs from this form)</label>
+        <label>Field mapping (automatically detected; adjust if needed)</label>
         <div className="row">
-          {Object.entries(fieldLabels).map(([key,label])=><div key={key}><label>{label}</label><input value={w.mapping?.[key]||''} placeholder="Question ID" onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,mapping:{...(x.mapping||{}),[key]:e.target.value}}:x))}/></div>)}
+          {Object.entries(fieldLabels).map(([key,label])=><div key={key}><label>{label}</label><select value={w.mapping?.[key]||''} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,mapping:{...(x.mapping||{}),[key]:e.target.value}}:x))}/></div>)}
         </div>
         <label>Certificate title</label><input value={w.pdfOptions?.title||defaultPdfOptions.title} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),title:e.target.value}}:x))}/>
         <label>Expiration notice</label><label className="checkbox-label"><input type="checkbox" checked={w.pdfOptions?.showExpiryNotice!==false} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),showExpiryNotice:e.target.checked}}:x))}/> Show one-year expiration notice</label>
-        <p className="muted">Each workflow now saves its own mapping and certificate title/expiration setting. Question IDs can be entered from the Connecteam form's question details.</p>
+        <p className="muted">Each workflow now saves its own mapping and certificate title/expiration setting. Question choices are loaded directly from the selected form. Confirm the name and signature fields before saving.</p>
       </div>)}
 
       <h2 className="section-heading">5. Connecteam document destination</h2>
