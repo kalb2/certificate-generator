@@ -22,6 +22,9 @@ const defaultPdfOptions = {
 
 export default function Setup() {
   const [forms,setForms] = useState([]);
+  const [documents,setDocuments] = useState([]);
+  const [documentId,setDocumentId] = useState('');
+  const [documentsLoaded,setDocumentsLoaded] = useState(false);
   const [formId,setFormId] = useState('');
   const [questions,setQuestions] = useState([]);
   const [mapping,setMapping] = useState({});
@@ -92,6 +95,7 @@ export default function Setup() {
       if (d.setup) {
         setSavedSetup(d.setup);
         setFormId(String(d.setup.formId || ''));
+        setDocumentId(String(d.setup.documentId || d.setup.workflows?.[0]?.documentId || ''));
         setMapping(d.setup.mapping || {});
         const savedPdfOptions = d.setup.pdfOptions || {};
         const legacyLogoWidths = { small:170, medium:330, large:400 };
@@ -119,6 +123,11 @@ export default function Setup() {
     const timer = setTimeout(refreshPdfPreview, 350);
     return () => clearTimeout(timer);
   }, [questions.length, pdfOptions, logoPath, selectedForm?.name, savedSetup?.formName]);
+
+  async function discoverDocuments(){
+    try { const r=await fetch('/api/connecteam/documents',{method:'POST'}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not load documents'); setDocuments(d.documents||[]); setDocumentsLoaded(true); }
+    catch(e){setError(e.message);}
+  }
 
   async function discoverForms(){
     setBusy(true); setError(''); setMessage('Connecting to Connecteam with the API key from this deployment...');
@@ -160,7 +169,7 @@ export default function Setup() {
     try {
       const formName = selectedForm?.name || savedSetup?.formName || 'Selected form';
       const legacyLogoUrl = !logoPath && savedSetup?.logoUrl ? savedSetup.logoUrl : '';
-      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoPath,logoUrl:legacyLogoUrl,pdfOptions})});
+      const r=await fetch('/api/connecteam/create-automation',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({formId,formName,mapping,logoPath,logoUrl:legacyLogoUrl,pdfOptions,documentId})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to create automation.');
       setResult(d); setSavedSetup(d.setup);
       setMessage(`Automation saved. Connecteam webhook ${d.webhookAction === 'updated' ? 'updated' : 'created'} and verified successfully.`);
@@ -245,13 +254,18 @@ export default function Setup() {
         </div>)}
       </div>
 
-      <h2 className="section-heading">5. Company logo</h2>
+      <h2 className="section-heading">5. Connecteam document destination</h2>
+      <p className="muted">Optionally submit generated certificates to the employee's assigned Connecteam document pack.</p>
+      <div className="actions"><button type="button" className="secondary" onClick={discoverDocuments}>{documentsLoaded ? 'Refresh documents' : 'Load Connecteam documents'}</button></div>
+      {documentsLoaded && <div><label>Destination document (optional)</label><select value={documentId} onChange={e=>setDocumentId(e.target.value)}><option value="">Do not upload to a document</option>{documents.map(d=><option key={d.id} value={d.id}>{d.name} (#{d.id})</option>)}</select><p className="muted">The employee must have this document assigned through a document pack. Only standard upload documents are listed.</p></div>}
+
+      <h2 className="section-heading">6. Company logo</h2>
       <p className="muted">In the default layout, this logo replaces the agency branding at the top of the reference certificate.</p>
       <label>Upload a PNG, JPEG, or WebP logo</label>
       <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>uploadLogo(e.target.files?.[0])} disabled={logoBusy} />
       {logoPreviewUrl && <div className="logo-preview"><img src={logoPreviewUrl} alt="Company logo preview" /><button className="secondary" onClick={removeLogo}>Remove logo</button></div>}
 
-      <h2 className="section-heading">6. Certificate layout</h2>
+      <h2 className="section-heading">7. Certificate layout</h2>
       <p className="muted layout-intro">Customize the design below. The preview updates automatically so you can check spacing before saving.</p>
 
       <section className="layout-group">
@@ -301,7 +315,7 @@ export default function Setup() {
         </div>
       </section>
 
-      <h2 className="section-heading">7. PDF preview</h2>
+      <h2 className="section-heading">8. PDF preview</h2>
       <div className="status-row">
         <p className="muted pdf-preview-copy">Uses sample recipient/date values and the same PDF generator used for real certificates.</p>
         <button className="secondary" disabled={previewBusy} onClick={refreshPdfPreview}>{previewBusy ? 'Refreshing...' : 'Refresh preview'}</button>
