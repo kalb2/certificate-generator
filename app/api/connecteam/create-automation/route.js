@@ -21,12 +21,19 @@ export async function POST(request){
     const secretKey=getWebhookToken();
     const savedWorkflows=[];
     const webhookResults=[];
+    const seenFormIds=new Set();
     for(const w of workflows){
       if(!w.formId) throw new Error('Every workflow must have a Connecteam form.');
+      const normalizedFormId=Number(w.formId);
+      if(!Number.isSafeInteger(normalizedFormId) || normalizedFormId<=0) throw new Error('Each workflow must use a valid Connecteam form ID.');
+      if(seenFormIds.has(normalizedFormId)) throw new Error('A Connecteam form can only be assigned to one certificate workflow. Remove the duplicate form.');
+      seenFormIds.add(normalizedFormId);
+      const fieldMapping=w.mapping||{};
+      if(!fieldMapping.firstName || !fieldMapping.lastName || !fieldMapping.signature) throw new Error('Each workflow needs a first name, last name, and signature question mapping.');
       const webhook=await provisionFormWebhook({apiKey,formId:Number(w.formId),formName:w.formName,url:webhookUrl,secretKey});
       webhookResults.push(webhook);
       savedWorkflows.push({
-        formId:Number(w.formId),formName:w.formName,mapping:w.mapping||{},
+        formId:normalizedFormId,formName:w.formName,mapping:fieldMapping,
         logoPath:w.logoPath||'',logoUrl:w.logoPath?'':(w.logoUrl||''),
         pdfOptions:w.pdfOptions||{},documentId:w.documentId?Number(w.documentId):null,
         expiresAt:w.expiresAt||'',webhookId:webhook.webhookId,webhookName:webhook.webhookName,
