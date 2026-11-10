@@ -158,6 +158,27 @@ export default function Setup() {
       const r=await fetch('/api/connecteam/forms',{method:'POST'});
       const d=await r.json(); if(!r.ok) throw new Error(d.error || 'Unable to list forms.');
       setForms(d.forms); setMessage(`Found ${d.forms.length} form${d.forms.length===1?'':'s'}. Choose the certificate form.`);
+      // Rehydrate question lists for saved secondary workflows so their mappings
+      // remain editable after returning to setup (questions aren't persisted).
+      const savedWorkflows = Array.isArray(savedSetup?.workflows) ? savedSetup.workflows : [];
+      if (savedWorkflows.length) {
+        const hydrated = await Promise.all(savedWorkflows.map(async workflow => {
+          if (!workflow.formId) return workflow;
+          try {
+            const response = await fetch('/api/connecteam/form', {
+              method:'POST',
+              headers:{'content-type':'application/json'},
+              body:JSON.stringify({formId:workflow.formId})
+            });
+            const detail = await response.json();
+            if (!response.ok) return workflow;
+            return {...workflow, questions:detail.questions||[], mapping:workflow.mapping||detail.mapping||{}};
+          } catch {
+            return workflow;
+          }
+        }));
+        setWorkflowDrafts(hydrated);
+      }
       if (savedSetup?.formId) await loadForm(String(savedSetup.formId), d.forms);
     } catch(e){ setError(e.message); setMessage(''); } finally { setBusy(false); }
   }
