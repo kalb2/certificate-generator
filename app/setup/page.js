@@ -309,9 +309,16 @@ export default function Setup() {
         {w.questions?.length ? <div className="row">
           {Object.entries(fieldLabels).map(([key,label])=><div key={key}><label>{label}</label><select value={w.mapping?.[key]||''} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,mapping:{...(x.mapping||{}),[key]:e.target.value}}:x))}><option value="">Not included</option>{w.questions.map(q=><option key={q.id} value={q.id}>{q.label} — {q.type}</option>)}</select></div>)}
         </div> : <p className="muted">Choose a form above to load its questions and mapping options.</p>}
+        <div className="actions"><button type="button" className="secondary" onClick={()=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,logoPath,logoUrl:!logoPath?(savedSetup?.logoUrl||''):'',pdfOptions:{...pdfOptions}}:x))}>Copy primary certificate design</button></div>
         <label>Certificate title</label><input value={w.pdfOptions?.title||defaultPdfOptions.title} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),title:e.target.value}}:x))}/>
+        <div className="row">
+          <div><label>Certificate style</label><select value={w.pdfOptions?.layout||defaultPdfOptions.layout} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),layout:e.target.value}}:x))}><option value="department">Layout 1</option><option value="centered">Centered classic</option></select></div>
+          <div><label>Primary color</label><input type="color" value={w.pdfOptions?.primaryColor||defaultPdfOptions.primaryColor} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),primaryColor:e.target.value}}:x))}/></div>
+          <div><label>Accent color</label><input type="color" value={w.pdfOptions?.accentColor||defaultPdfOptions.accentColor} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),accentColor:e.target.value}}:x))}/></div>
+          <div><label>Logo width: {Number(w.pdfOptions?.logoSize)||330} pt</label><input type="range" min="160" max="600" step="10" value={Number(w.pdfOptions?.logoSize)||330} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),logoSize:Number(e.target.value)}}:x))}/></div>
+        </div>
         <label>Expiration notice</label><label className="checkbox-label"><input type="checkbox" checked={w.pdfOptions?.showExpiryNotice!==false} onChange={e=>setWorkflowDrafts(current=>current.map((x,j)=>j===i?{...x,pdfOptions:{...(x.pdfOptions||defaultPdfOptions),showExpiryNotice:e.target.checked}}:x))}/> Show one-year expiration notice</label>
-        <p className="muted">Each workflow now saves its own mapping and certificate title/expiration setting. Question choices are loaded directly from the selected form. Confirm the name and signature fields before saving.</p>
+        <p className="muted">This workflow stores its own mapping, logo reference, layout, colors, logo size, title, and expiration setting. Copy the primary design first if you want the same starting point, then customize it independently.</p>
       </div>)}
 
       <h2 className="section-heading">5. Connecteam document destination</h2>
